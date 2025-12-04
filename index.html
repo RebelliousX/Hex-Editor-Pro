@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -267,6 +269,28 @@
         .btn:hover { background:var(--btn-hover); border-color:var(--accent-color); transform:translateY(-1px); }
         .btn-primary { background:var(--accent-color); color:#fff; border-color:var(--accent-color); }
         .btn-primary:hover { background:var(--accent-hover); border-color:var(--accent-hover); }
+
+        /* Button Fonts Outline/Shadow */
+        .modal .btn {
+            text-shadow: 0 1px 1px rgba(255,255,255,0.4);
+            font-weight: 600;
+            letter-spacing: 0.3px;
+        }
+        .dark-mode .modal .btn {
+            text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+        }
+
+        /* Help and License Dialog Width */
+        #helpDialog .modal-content, #licenseDialog .modal-content {
+            max-width: 50%;
+            min-width: 400px;
+        }
+        @media (max-width: 600px) {
+            #helpDialog .modal-content, #licenseDialog .modal-content {
+                max-width: 90%;
+                min-width: auto;
+            }
+        }
 
         .form-group { margin-bottom:16px; }
         .form-label { display:block; margin-bottom:6px; color:var(--text-secondary); font-weight:500; }
@@ -987,7 +1011,7 @@ THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR I
             </div>
 
             <div class="about-title">Hex Editor Pro</div>
-            <div class="about-version">Version 1.0.0</div>
+            <div class="about-version">Version 1.0.2</div>
             <div class="about-desc">
                 An advanced, high-performance PWA Hex Editor featuring piece-table buffer management and side-by-side comparison.
             </div>
@@ -1023,7 +1047,8 @@ THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR I
         // --- CONSTANTS ---
         const MAX_SCROLL_HEIGHT = 15000000;
         const CACHE_BLOCK_SIZE = 64 * 1024; // 64KB Cache Blocks
-        const MAX_COPY_SIZE = 1024 * 1024; // 1MB Max Clipboard Copy
+        const MAX_CACHE_BLOCKS = 300; // ~19MB Cache limit
+        const MAX_COPY_SIZE = 128 * 1024 * 1024; // 128MB Max Clipboard Copy
 
         // --- PIECE TABLE CLASS ---
         class PieceTable {
@@ -1035,7 +1060,7 @@ THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR I
                 if (file) this.pieces.push({ source: 'file', length: file.size, fileOffset: 0 });
                 this.size = this.originalSize;
                 
-                // Cache for file reads. Key: blockIndex
+                // Cache for file reads. Key: blockIndex, Value: Uint8Array
                 this.fileCache = new Map();
             }
 
@@ -1087,14 +1112,11 @@ THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR I
                 if (length <= 0) return;
                 let remaining = length;
                 
-                // Since we are deleting, the structure shifts. 
-                // We keep finding the piece at 'offset' until we have deleted 'length' bytes.
                 while (remaining > 0) {
                     const loc = this.findPiece(offset);
                     if (!loc) break;
                     const p = this.pieces[loc.index];
                     
-                    // How many bytes can we delete from this piece starting at loc.offsetInPiece?
                     const availableInPiece = p.length - loc.offsetInPiece;
                     const deleteFromPiece = Math.min(remaining, availableInPiece);
                     
@@ -1144,9 +1166,22 @@ THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR I
                                     const bEnd = Math.min(this.originalSize, bStart + CACHE_BLOCK_SIZE);
                                     promises.push(
                                         this.originalFile.slice(bStart, bEnd).arrayBuffer()
-                                            .then(buf => this.fileCache.set(b, new Uint8Array(buf)))
+                                            .then(buf => {
+                                                const arr = new Uint8Array(buf);
+                                                this.fileCache.set(b, arr); // Adds to end (MRU)
+                                                // LRU Eviction
+                                                if (this.fileCache.size > MAX_CACHE_BLOCKS) {
+                                                    const oldest = this.fileCache.keys().next().value;
+                                                    this.fileCache.delete(oldest);
+                                                }
+                                            })
                                             .catch(e => console.error("Load error", e))
                                     );
+                                } else {
+                                    // Touch for LRU (Move to end)
+                                    const data = this.fileCache.get(b);
+                                    this.fileCache.delete(b);
+                                    this.fileCache.set(b, data);
                                 }
                             }
                         }
@@ -1180,11 +1215,15 @@ THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR I
                                 const blockOffset = absPos % CACHE_BLOCK_SIZE;
                                 const blockData = this.fileCache.get(block);
                                 if (blockData) {
+                                    // Touch for LRU
+                                    this.fileCache.delete(block);
+                                    this.fileCache.set(block, blockData);
+
                                     const toCopy = Math.min(len - bytesCopied, blockData.length - blockOffset);
                                     result.set(blockData.subarray(blockOffset, blockOffset + toCopy), destIdx + bytesCopied);
                                     bytesCopied += toCopy;
                                 } else {
-                                    bytesCopied += len; // Fallback
+                                    bytesCopied += len; // Fallback, should rely on ensureRange calling first
                                 }
                             }
                         }
@@ -1267,8 +1306,8 @@ THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR I
         }
 
         // --- STATE ---
-        let file1State = { doc: new PieceTable(null), loading: false, pendingOffset: null, hasPending: false, name: '', undoStack: [], redoStack: [], scrollOverride: null, originalSize: 0 };
-        let file2State = { doc: new PieceTable(null), loading: false, pendingOffset: null, hasPending: false, name: '', undoStack: [], redoStack: [], scrollOverride: null, originalSize: 0 };
+        let file1State = { doc: new PieceTable(null), loading: false, pendingOffset: null, hasPending: false, name: '', undoStack: [], redoStack: [], scrollOverride: null, originalSize: 0, renderRaf: null };
+        let file2State = { doc: new PieceTable(null), loading: false, pendingOffset: null, hasPending: false, name: '', undoStack: [], redoStack: [], scrollOverride: null, originalSize: 0, renderRaf: null };
         
         let compareMode = false;
         let isDarkMode = false;
@@ -1639,50 +1678,6 @@ THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR I
             if(compareMode) renderView(2, getScrollByte(2));
         }
 
-        function getScrollByte(fileNum) {
-            const container = document.getElementById(`hexContainer${fileNum}`);
-            const state = fileNum === 1 ? file1State : file2State;
-            const totalRowHeight = fontSize + rowHeight;
-            
-            if (!state.doc || (state.doc.size === 0 && !state.doc.originalFile)) return 0;
-            
-            // Check for override (precise navigation)
-            if (state.scrollOverride) {
-                // If the user hasn't scrolled away significantly (tolerance of 10px)
-                if (Math.abs(container.scrollTop - state.scrollOverride.scrollTop) < 10) {
-                    return state.scrollOverride.byte;
-                } else {
-                    state.scrollOverride = null;
-                }
-            }
-            
-            // In compare mode, logical size is max of both
-            let size = state.doc.size;
-            if (compareMode) size = Math.max(file1State.doc.size, file2State.doc.size);
-
-            const totalRows = Math.ceil(size / bytesPerRow);
-            const realHeight = totalRows * totalRowHeight;
-            const useVirtual = realHeight > totalRows * totalRowHeight; // virtual scroll threshold bugfix
-            const useVirtualFixed = realHeight > MAX_SCROLL_HEIGHT;
-
-            if (!useVirtualFixed) {
-                return Math.floor(container.scrollTop / totalRowHeight) * bytesPerRow;
-            }
-            
-            const scrollTop = container.scrollTop;
-            const clientHeight = container.clientHeight;
-            const scrollMax = container.scrollHeight - clientHeight;
-            
-            if (scrollMax <= 0) return 0;
-
-            const visibleRows = Math.floor(clientHeight / totalRowHeight);
-            const maxHiddenRows = Math.max(0, totalRows - visibleRows);
-            const pct = scrollTop / scrollMax;
-            const targetRow = Math.floor(pct * maxHiddenRows);
-
-            return targetRow * bytesPerRow;
-        }
-
         // --- SETTINGS ---
         function loadSettings() {
             const s = JSON.parse(localStorage.getItem('hexEditorSettings') || '{}');
@@ -1786,6 +1781,7 @@ THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR I
             generateDecodingTable(textDecoding);
             applyCSSVars();
             refreshViews();
+            saveSettings(); // Ensure we save the restored defaults so they persist on reload
         }
 
         function applySettings() {
@@ -2079,18 +2075,20 @@ THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR I
             const totalRows = Math.ceil(maxSize / bytesPerRow);
             const realHeight = totalRows * totalRowHeight;
             const useVirtual = realHeight > MAX_SCROLL_HEIGHT;
+            const shimHeight = useVirtual ? MAX_SCROLL_HEIGHT : realHeight;
             
             const clientHeight = container.clientHeight;
             const visibleRows = Math.floor(clientHeight / totalRowHeight);
             
             // For virtual scroll, we map [0, maxHiddenRows] -> [0, scrollMax]
             const maxHiddenRows = Math.max(0, totalRows - visibleRows);
-            const scrollMax = container.scrollHeight - clientHeight;
+            // Use stable scrollMax from shim
+            const scrollMax = shimHeight - clientHeight;
             
             // Determine the range of rows currently visible (Coarse)
             let currentTopRow = 0;
             if (useVirtual && maxHiddenRows > 0 && scrollMax > 0) {
-                 const pct = container.scrollTop / scrollMax;
+                 const pct = Math.min(1, Math.max(0, container.scrollTop / scrollMax));
                  currentTopRow = Math.floor(pct * maxHiddenRows);
             } else {
                  currentTopRow = Math.floor(container.scrollTop / totalRowHeight);
@@ -2732,6 +2730,7 @@ THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR I
             state.redoStack = [];
             state.scrollOverride = null;
             state.originalSize = 0;
+            if (state.renderRaf) { cancelAnimationFrame(state.renderRaf); state.renderRaf = null; }
             document.getElementById(`file${num}Name`).textContent = 'No file loaded';
             document.getElementById(`file${num}Size`).textContent = '';
             updateFileIndicators(num);
@@ -2746,7 +2745,6 @@ THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR I
             
             const totalRowHeight = fontSize + rowHeight;
             
-            // In compare mode, use max size for both to allow alignment
             let size = state.doc.size;
             if (compareMode) {
                 size = Math.max(file1State.doc.size, file2State.doc.size);
@@ -2764,89 +2762,104 @@ THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR I
             
             container.onscroll = (e) => onContainerScroll(fileNum);
             
-            ensureDataFor(fileNum, maintainPosition ? getScrollByte(fileNum) : 0).then(() => onContainerScroll(fileNum));
+            // Initial render
+            const startByte = maintainPosition ? getScrollByte(fileNum) : 0;
+            renderView(fileNum, startByte);
+            ensureDataFor(fileNum, startByte);
         }
 
         function onContainerScroll(fileNum) {
             if (suppressScrollHandler) return;
 
             const container = document.getElementById(`hexContainer${fileNum}`);
-            const state = fileNum === 1 ? file1State : file2State;
             
-            const totalRowHeight = fontSize + rowHeight;
-            const scrollTop = container.scrollTop;
-            const clientHeight = container.clientHeight;
-            const scrollMax = container.scrollHeight - clientHeight;
-            
-            let targetByte = 0;
-            
-            let maxSize = state.doc.size;
-            if (compareMode) maxSize = Math.max(file1State.doc.size, file2State.doc.size);
-            
-            if (maxSize > 0 && clientHeight > 0) {
-                const totalRows = Math.ceil(maxSize / bytesPerRow);
-                const realHeight = totalRows * totalRowHeight;
-                const useVirtual = realHeight > MAX_SCROLL_HEIGHT;
-                
-                if (useVirtual) {
-                     const pct = scrollMax > 0 ? scrollTop / scrollMax : 0;
-                     const visibleRows = Math.floor(clientHeight / totalRowHeight);
-                     const maxHiddenRows = Math.max(0, totalRows - visibleRows);
-                     const targetRow = Math.floor(pct * maxHiddenRows);
-                     targetByte = targetRow * bytesPerRow;
-                } else {
-                     const targetRow = Math.floor(scrollTop / totalRowHeight);
-                     targetByte = targetRow * bytesPerRow;
-                }
-            }
-            
-            if(targetByte < 0) targetByte = 0;
-            const maxAllowedStart = Math.max(0, Math.floor((maxSize - 1) / bytesPerRow) * bytesPerRow);
-            if(targetByte > maxAllowedStart) targetByte = maxAllowedStart;
-
             // --- Scroll Sync & Debounce Logic ---
             isScrolling = true;
             if (scrollEndTimeout) clearTimeout(scrollEndTimeout);
             
-            // When scrolling stops (debounce)
             scrollEndTimeout = setTimeout(() => {
                 isScrolling = false;
-                scrollLockSource = null; // Release lock only when scrolling fully stops
-                refreshViews(); // Re-render to show diffs and ensure final alignment
+                scrollLockSource = null;
+                refreshViews();
             }, 300);
 
             if (compareMode) {
-                // Sync only if we hold the lock or no one holds it
                 if (!scrollLockSource || scrollLockSource === container) {
                     scrollLockSource = container;
 
                     const otherNum = fileNum === 1 ? 2 : 1;
                     const otherContainer = document.getElementById(`hexContainer${otherNum}`);
                     
-                    // Direct 1:1 sync for address alignment
-                    // Since both containers have the same virtual height/shim logic in compare mode
                     otherContainer.scrollTop = container.scrollTop;
                     otherContainer.scrollLeft = container.scrollLeft;
 
-                    // Explicitly render and ensure data for the other file to prevent blank views
                     const otherByte = getScrollByte(otherNum);
                     renderView(otherNum, otherByte);
                     ensureDataFor(otherNum, otherByte);
                 }
             }
 
+            // Use unified calculation logic
+            const targetByte = getScrollByte(fileNum);
             renderView(fileNum, targetByte);
             ensureDataFor(fileNum, targetByte);
+        }
+
+        function getScrollByte(fileNum) {
+            const container = document.getElementById(`hexContainer${fileNum}`);
+            const state = fileNum === 1 ? file1State : file2State;
+            const totalRowHeight = fontSize + rowHeight;
+            
+            if (!state.doc || (state.doc.size === 0 && !state.doc.originalFile)) return 0;
+            
+            if (state.scrollOverride) {
+                if (Math.abs(container.scrollTop - state.scrollOverride.scrollTop) < 10) {
+                    return state.scrollOverride.byte;
+                } else {
+                    state.scrollOverride = null;
+                }
+            }
+            
+            let size = state.doc.size;
+            if (compareMode) size = Math.max(file1State.doc.size, file2State.doc.size);
+
+            const totalRows = Math.ceil(size / bytesPerRow);
+            const realHeight = totalRows * totalRowHeight;
+            const useVirtual = realHeight > MAX_SCROLL_HEIGHT;
+
+            if (!useVirtual) {
+                return Math.floor(container.scrollTop / totalRowHeight) * bytesPerRow;
+            }
+            
+            const scrollTop = container.scrollTop;
+            const clientHeight = container.clientHeight;
+            
+            const shimHeight = MAX_SCROLL_HEIGHT;
+            const scrollMax = shimHeight - clientHeight;
+            
+            if (scrollMax <= 0) return 0;
+
+            // FIX: Snap to bottom if within 1 row height of end to prevent jitter
+            if (scrollTop >= scrollMax - totalRowHeight) {
+                 const visibleRows = Math.floor(clientHeight / totalRowHeight);
+                 const maxHiddenRows = Math.max(0, totalRows - visibleRows);
+                 return maxHiddenRows * bytesPerRow;
+            }
+
+            const visibleRows = Math.floor(clientHeight / totalRowHeight);
+            const maxHiddenRows = Math.max(0, totalRows - visibleRows);
+            
+            const pct = Math.min(1, Math.max(0, scrollTop / scrollMax));
+            const targetRow = Math.floor(pct * maxHiddenRows);
+
+            return targetRow * bytesPerRow;
         }
 
         async function ensureDataFor(fileNum, targetOffset) {
             const state = fileNum === 1 ? file1State : file2State;
             
-            // Queue the latest requested offset
             state.pendingOffset = targetOffset;
             
-            // If already loading, just mark that we have a pending update and exit.
-            // The existing loop will pick it up when it finishes its current batch.
             if (state.loading) {
                 state.hasPending = true;
                 return;
@@ -2854,11 +2867,8 @@ THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR I
             
             state.loading = true;
             
-            // Process queue: Keep loading until no more pending updates
             while(true) {
                 state.hasPending = false;
-                
-                // Always fetch for the CURRENT scroll position if it changed during load
                 const currentOffset = state.pendingOffset !== null ? state.pendingOffset : targetOffset;
 
                 const container = document.getElementById(`hexContainer${fileNum}`);
@@ -2871,15 +2881,15 @@ THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR I
                     console.error("Data load error", e);
                 }
                 
-                // Force UI update with newly loaded data
-                // We use getScrollByte() to ensure we render exactly where the user is currently looking,
-                // in case they scrolled while we were awaiting the data.
-                requestAnimationFrame(() => {
-                    const actualByte = getScrollByte(fileNum);
-                    renderView(fileNum, actualByte);
+                // Throttle rendering: Cancel previous pending frame
+                if (state.renderRaf) cancelAnimationFrame(state.renderRaf);
+                state.renderRaf = requestAnimationFrame(() => {
+                    state.renderRaf = null;
+                    // Always re-calculate scroll byte to match current scroll position
+                    // This handles cases where user kept scrolling while we loaded data
+                    renderView(fileNum, getScrollByte(fileNum));
                 });
                 
-                // If no new request came in while we were waiting, we are done.
                 if (!state.hasPending) {
                     break;
                 }
@@ -2907,12 +2917,15 @@ THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR I
             
             let contentTop = 0;
             if (useVirtual) {
-                const offsetV = container.scrollTop % totalRowHeight;
-                contentTop = container.scrollTop - offsetV;
-                const spaceRemaining = shimHeight - contentTop;
-                const maxLines = Math.floor(spaceRemaining / totalRowHeight);
-                lines = Math.min(lines, maxLines);
-                lines = Math.max(0, lines);
+                // Simplified Virtual Scroll Alignment: Snap content to scrollTop.
+                // In compressed scroll mode, sub-pixel logic (scrollTop % rowHeight) fights with 
+                // data-row skipping (pct * rows), causing jitter loop at end of file.
+                // We simply pin the visual content block to the scroll position and fill it with data.
+                contentTop = container.scrollTop;
+                
+                // Removed clamping logic here that restricted 'lines' based on spaceRemaining.
+                // This prevents layout thrashing/jitter at the bottom of the file.
+                // The loop below naturally stops when offset >= maxSize, preventing overflow.
             } else {
                 const rowIdx = Math.floor(startByte / bytesPerRow);
                 contentTop = rowIdx * totalRowHeight;
@@ -3441,37 +3454,110 @@ THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR I
         }
 
         async function performCopyHex() {
-            if (selectionRangeStart === null) return;
+            if (selectionRangeStart === null) return false;
             const state = activeFileNum === 1 ? file1State : file2State;
-            const len = selectionRangeEnd - selectionRangeStart + 1;
-            const copyLen = Math.min(len, MAX_COPY_SIZE);
-            if (len > MAX_COPY_SIZE) updateStatus('Selection too large, copied first 1MB');
+            const start = Math.min(selectionRangeStart, selectionRangeEnd);
+            const end = Math.max(selectionRangeStart, selectionRangeEnd);
+            const len = end - start + 1;
             
-            const data = state.doc.read(selectionRangeStart, copyLen);
-            const hex = Array.from(data).map(b => b.toString(16).padStart(2,'0').toUpperCase()).join(' ');
-            try { await navigator.clipboard.writeText(hex); updateStatus('Copied Hex'); } catch(e) { updateStatus('Copy failed'); }
+            if (len > MAX_COPY_SIZE) {
+                showAlertDialog('Copy Error', `Selection size (${formatFileSize(len)}) exceeds the limit (${formatFileSize(MAX_COPY_SIZE)}).`);
+                return false;
+            }
+            
+            updateStatus('Copying...');
+            
+            // Process in chunks to respect cache limits
+            const CHUNK_SIZE = 1024 * 1024; // 1MB chunks
+            let hexParts = [];
+            
+            try {
+                for(let offset = start; offset < start + len; offset += CHUNK_SIZE) {
+                    const chunkLen = Math.min(CHUNK_SIZE, start + len - offset);
+                    // Ensure range loaded into cache before reading
+                    await state.doc.ensureRange(offset, chunkLen);
+                    
+                    const chunk = state.doc.read(offset, chunkLen);
+                    
+                    // Convert to string chunk immediately to free Uint8Array
+                    let chunkHex = '';
+                    for(let i=0; i<chunk.length; i++) {
+                        chunkHex += chunk[i].toString(16).padStart(2,'0').toUpperCase() + ' ';
+                    }
+                    hexParts.push(chunkHex);
+                    
+                    // Update Status periodically
+                    if (len > 5 * 1024 * 1024) {
+                         const percent = Math.round(((offset + chunkLen - start) / len) * 100);
+                         updateStatus(`Copying... ${percent}%`);
+                         // Allow UI repaint
+                         await new Promise(resolve => requestAnimationFrame(resolve));
+                    }
+                }
+
+                // Join and trim trailing space
+                const finalHex = hexParts.join('').trim();
+                await navigator.clipboard.writeText(finalHex);
+                updateStatus(`Copied ${formatFileSize(len)} as Hex`);
+                return true;
+            } catch(e) {
+                console.error(e);
+                updateStatus('Copy failed');
+                return false;
+            }
         }
 
         async function performCopyAscii() {
-            if (selectionRangeStart === null) return;
+            if (selectionRangeStart === null) return false;
             const state = activeFileNum === 1 ? file1State : file2State;
-            const len = selectionRangeEnd - selectionRangeStart + 1;
-            const copyLen = Math.min(len, MAX_COPY_SIZE);
-            if (len > MAX_COPY_SIZE) updateStatus('Selection too large, copied first 1MB');
+            const start = Math.min(selectionRangeStart, selectionRangeEnd);
+            const end = Math.max(selectionRangeStart, selectionRangeEnd);
+            const len = end - start + 1;
             
-            const data = state.doc.read(selectionRangeStart, copyLen);
-            // Replace non-printable with selected decoding logic
-            let str = '';
-            for(let i=0; i<data.length; i++) {
-                str += decodingTable[data[i]] || '.';
+            if (len > MAX_COPY_SIZE) {
+                showAlertDialog('Copy Error', `Selection size (${formatFileSize(len)}) exceeds the limit (${formatFileSize(MAX_COPY_SIZE)}).`);
+                return false;
             }
-            try { await navigator.clipboard.writeText(str); updateStatus('Copied Text'); } catch(e) { updateStatus('Copy failed'); }
+            
+            updateStatus('Copying...');
+            
+            const CHUNK_SIZE = 1024 * 1024; // 1MB chunks
+            let strParts = [];
+            
+            try {
+                for(let offset = start; offset < start + len; offset += CHUNK_SIZE) {
+                    const chunkLen = Math.min(CHUNK_SIZE, start + len - offset);
+                    await state.doc.ensureRange(offset, chunkLen);
+                    const chunk = state.doc.read(offset, chunkLen);
+                    
+                    let chunkStr = '';
+                    for(let i=0; i<chunk.length; i++) {
+                        chunkStr += decodingTable[chunk[i]] || '.';
+                    }
+                    strParts.push(chunkStr);
+
+                     if (len > 5 * 1024 * 1024) {
+                         const percent = Math.round(((offset + chunkLen - start) / len) * 100);
+                         updateStatus(`Copying... ${percent}%`);
+                         await new Promise(resolve => requestAnimationFrame(resolve));
+                    }
+                }
+                
+                const finalStr = strParts.join('');
+                await navigator.clipboard.writeText(finalStr);
+                updateStatus('Copied Text'); 
+                return true; 
+            } catch(e) { 
+                console.error(e);
+                updateStatus('Copy failed'); 
+                return false; 
+            }
         }
 
         async function performCut() {
             if (selectionRangeStart === null) return;
-            await performCopyHex();
-            performDelete();
+            const success = await performCopyHex();
+            if (success) performDelete();
         }
 
         async function performPaste(overwrite) {
@@ -3486,25 +3572,34 @@ THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR I
                 if (!text) return;
                 
                 let data = new Uint8Array(0);
+                let sizeCheck = 0;
                 
                 if (activePane === 'hex') {
-                    // Check for invalid hex characters (allow 0-9, A-F, a-f and whitespaces)
+                    // Check for invalid hex characters
                     if (!/^[0-9A-Fa-f\s]*$/.test(text)) {
                          showAlertDialog('Paste Error', 'Clipboard content contains invalid hexadecimal characters.\n\nIf you intended to paste text, please click on the Text (ASCII) panel and try again.');
                          return;
                     }
-
-                    // Clean hex string
-                    const hex = text.replace(/[^0-9A-Fa-f]/g, '');
+                    // Estimate size for check
+                    const cleanHex = text.replace(/[^0-9A-Fa-f]/g, '');
+                    sizeCheck = cleanHex.length / 2;
                     
-                    if (hex.length === 0) return;
+                    if (sizeCheck > MAX_COPY_SIZE) {
+                         showAlertDialog('Paste Error', `Data size (${formatFileSize(sizeCheck)}) exceeds the limit (${formatFileSize(MAX_COPY_SIZE)}).`);
+                         return;
+                    }
 
-                    if (hex.length % 2 !== 0) { showAlertDialog('Paste Error', 'Clipboard data is not valid hex (odd length). Hex data must be in pairs.'); return; }
-                    data = new Uint8Array(hex.length / 2);
-                    for(let i=0; i<hex.length; i+=2) {
-                        data[i/2] = parseInt(hex.substr(i, 2), 16);
+                    if (cleanHex.length % 2 !== 0) { showAlertDialog('Paste Error', 'Clipboard data is not valid hex (odd length). Hex data must be in pairs.'); return; }
+                    data = new Uint8Array(sizeCheck);
+                    for(let i=0; i<cleanHex.length; i+=2) {
+                        data[i/2] = parseInt(cleanHex.substr(i, 2), 16);
                     }
                 } else {
+                    sizeCheck = new TextEncoder().encode(text).length;
+                    if (sizeCheck > MAX_COPY_SIZE) {
+                         showAlertDialog('Paste Error', `Data size (${formatFileSize(sizeCheck)}) exceeds the limit (${formatFileSize(MAX_COPY_SIZE)}).`);
+                         return;
+                    }
                     data = new TextEncoder().encode(text);
                 }
 
