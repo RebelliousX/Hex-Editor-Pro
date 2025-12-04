@@ -1011,7 +1011,7 @@ THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR I
             </div>
 
             <div class="about-title">Hex Editor Pro</div>
-            <div class="about-version">Version 1.0.2</div>
+            <div class="about-version">Version 1.0.0 beta 1</div>
             <div class="about-desc">
                 An advanced, high-performance PWA Hex Editor featuring piece-table buffer management and side-by-side comparison.
             </div>
@@ -2080,9 +2080,9 @@ THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR I
             const clientHeight = container.clientHeight;
             const visibleRows = Math.floor(clientHeight / totalRowHeight);
             
-            // Use stable scrollMax from DOM scrollHeight if available, otherwise shimHeight
-            // During scrollToOffset, scrollHeight might be outdated if we haven't rendered yet?
-            // Actually, initVirtualScroll sets shim height immediately.
+            // For virtual scroll, we map [0, maxHiddenRows] -> [0, scrollMax]
+            const maxHiddenRows = Math.max(0, totalRows - visibleRows);
+            // Use stable scrollMax from shim
             const scrollMax = shimHeight - clientHeight;
             
             // Determine the range of rows currently visible (Coarse)
@@ -2121,8 +2121,6 @@ THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR I
                 
                 // Clamp
                 if (targetTopRow < 0) targetTopRow = 0;
-                // Allow slightly more for scrolling past end if needed, but here clamp to maxHiddenRows
-                const maxHiddenRows = Math.max(0, totalRows - visibleRows + 1); // Use buffer
                 if (targetTopRow > maxHiddenRows) targetTopRow = maxHiddenRows;
                 
                 // Apply scroll
@@ -2836,23 +2834,20 @@ THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR I
             const scrollTop = container.scrollTop;
             const clientHeight = container.clientHeight;
             
-            // Use actual DOM scrollHeight for maximum accuracy
-            const scrollHeight = container.scrollHeight; 
-            const scrollMax = scrollHeight - clientHeight;
+            const shimHeight = MAX_SCROLL_HEIGHT;
+            const scrollMax = shimHeight - clientHeight;
             
             if (scrollMax <= 0) return 0;
 
-            // FIX: Snap to bottom if within 1 row height of end
+            // FIX: Snap to bottom if within 1 row height of end to prevent jitter
             if (scrollTop >= scrollMax - totalRowHeight) {
                  const visibleRows = Math.floor(clientHeight / totalRowHeight);
-                 // Add +1 buffer to ensure we can always see the last row even if clientHeight is slightly off
-                 const maxHiddenRows = Math.max(0, totalRows - visibleRows + 1); 
+                 const maxHiddenRows = Math.max(0, totalRows - visibleRows);
                  return maxHiddenRows * bytesPerRow;
             }
 
             const visibleRows = Math.floor(clientHeight / totalRowHeight);
-            // Use same +1 buffer for proportional scrolling
-            const maxHiddenRows = Math.max(0, totalRows - visibleRows + 1);
+            const maxHiddenRows = Math.max(0, totalRows - visibleRows);
             
             const pct = Math.min(1, Math.max(0, scrollTop / scrollMax));
             const targetRow = Math.floor(pct * maxHiddenRows);
@@ -2922,7 +2917,15 @@ THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR I
             
             let contentTop = 0;
             if (useVirtual) {
+                // Simplified Virtual Scroll Alignment: Snap content to scrollTop.
+                // In compressed scroll mode, sub-pixel logic (scrollTop % rowHeight) fights with 
+                // data-row skipping (pct * rows), causing jitter loop at end of file.
+                // We simply pin the visual content block to the scroll position and fill it with data.
                 contentTop = container.scrollTop;
+                
+                // Removed clamping logic here that restricted 'lines' based on spaceRemaining.
+                // This prevents layout thrashing/jitter at the bottom of the file.
+                // The loop below naturally stops when offset >= maxSize, preventing overflow.
             } else {
                 const rowIdx = Math.floor(startByte / bytesPerRow);
                 contentTop = rowIdx * totalRowHeight;
