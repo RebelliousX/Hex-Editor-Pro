@@ -40,7 +40,8 @@ Built as a **Progressive Web App (PWA)**, it offers a native desktop experience 
 *   **Replace All:** Pattern matching and bulk replacement.
 *   **Jump to Offset:** Quickly navigate to specific memory addresses.
 *   **Clipboard Management:** Intelligent Copy/Paste for Hex, Text, and Offsets.
-*   **Multi-Select** Hold `SHIFT` key while clicking to select range of bytes. See `View Help` for more details.
+
+##### ℹ️ NOTE: We put a limitation on the clipboard to be 128MB. If you attempt to select range of bytes then copy or cut those selected bytes, you will get error message. 
 
 ### 🎨 Customization
 *   **Theming:** Toggle between Dark and Light modes. Both themes utilize glassmorphism visuals (CSS Glass UI).
@@ -69,7 +70,7 @@ If you wish to run the app without installing it or for development purposes:
 1.  Clone this repository or just download the `index.html` file.
 2.  Simply open the `index.html` file in any modern web browser.
 
-##### The app is designed to be fully working in offline mode. Everything is self contained, HTML/JavaScript/CSS in one file and even the icon of the app. The manifest and Service Worker (`manifest.json` and `sw.js`) files are for installing the app as PWA, they are not needed to run locally and offline.
+##### ℹ️ NOTE: The app is designed to be fully working in offline mode. Everything is self contained, HTML/JavaScript/CSS in one file and even the icon of the app. The manifest and Service Worker (`manifest.json` and `sw.js`) files are for installing the app as PWA, they are not needed to run locally and offline.
 
 ---
 
@@ -88,8 +89,14 @@ If you wish to run the app without installing it or for development purposes:
 | **Copy Hex** | `Ctrl` + `C` | Copy selected bytes as Hex string |
 | **Copy Text** | `Ctrl` + `T` | Copy selected bytes as Text |
 | **Paste Overwrite** | `Ctrl` + `V` | Paste and overwrite existing data in current selected pane (Hex or Text) |
-| **Paste Insert** | `Ctrl` + `I` | Paste and insert data at selected byte offset (Hex or Text). NOTE: File size will change.  |
-| **Delete** | `DEL` | Delete current selected byte or range of bytes. NOTE: File size will change.  |
+| **Paste Insert** | `Ctrl` + `I` | Paste and insert data at selected byte offset (Hex or Text)  |
+| **Delete** | `DEL` | Deletes selected byte or range of bytes.  |
+
+
+#### ℹ️ NOTE: Paste Insert and Delete will change the file size.
+
+#### ℹ️ NOTE: You can select multiple bytes by holding `SHIFT` key while clicking.
+
 ---
 
 ## 🔧 Technical Details
