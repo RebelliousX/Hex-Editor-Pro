@@ -1,5 +1,3 @@
-
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -271,13 +269,31 @@
         .btn-primary:hover { background:var(--accent-hover); border-color:var(--accent-hover); }
 
         /* Button Fonts Outline/Shadow */
-        .modal .btn {
-            text-shadow: 0 1px 1px rgba(255,255,255,0.4);
+        .btn {
             font-weight: 600;
             letter-spacing: 0.3px;
+            text-shadow: 
+                -1px -1px 0 rgba(255,255,255,0.6), 
+                1px -1px 0 rgba(255,255,255,0.6), 
+                -1px 1px 0 rgba(255,255,255,0.6), 
+                1px 1px 0 rgba(255,255,255,0.6),
+                0 1px 2px rgba(0,0,0,0.2);
         }
-        .dark-mode .modal .btn {
-            text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+        .btn-primary {
+             text-shadow: 
+                -1px -1px 0 rgba(0,0,0,0.3), 
+                1px -1px 0 rgba(0,0,0,0.3), 
+                -1px 1px 0 rgba(0,0,0,0.3), 
+                1px 1px 0 rgba(0,0,0,0.3),
+                0 2px 4px rgba(0,0,0,0.4);
+        }
+        .dark-mode .btn:not(.btn-primary) {
+             text-shadow: 
+                -1px -1px 0 rgba(0,0,0,0.8), 
+                1px -1px 0 rgba(0,0,0,0.8), 
+                -1px 1px 0 rgba(0,0,0,0.8), 
+                1px 1px 0 rgba(0,0,0,0.8),
+                0 1px 2px rgba(0,0,0,0.5);
         }
 
         /* Help and License Dialog Width */
@@ -1011,7 +1027,7 @@ THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR I
             </div>
 
             <div class="about-title">Hex Editor Pro</div>
-            <div class="about-version">Version 1.0.0 beta 1</div>
+            <div class="about-version">Version 1.0.0</div>
             <div class="about-desc">
                 An advanced, high-performance PWA Hex Editor featuring piece-table buffer management and side-by-side comparison.
             </div>
@@ -3568,52 +3584,83 @@ THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR I
             const state = activeFileNum === 1 ? file1State : file2State;
             
             try {
+                updateStatus('Reading clipboard...');
                 const text = await navigator.clipboard.readText();
-                if (!text) return;
+                if (!text) { updateStatus('Clipboard empty'); return; }
                 
                 let data = new Uint8Array(0);
-                let sizeCheck = 0;
                 
                 if (activePane === 'hex') {
-                    // Check for invalid hex characters
-                    if (!/^[0-9A-Fa-f\s]*$/.test(text)) {
+                    updateStatus('Analyzing hex data...');
+                    // Yield to render status
+                    await new Promise(r => requestAnimationFrame(r));
+                    
+                    // Regex check for invalid characters (excluding whitespace)
+                    if (/[^0-9A-Fa-f\s]/.test(text)) {
                          showAlertDialog('Paste Error', 'Clipboard content contains invalid hexadecimal characters.\n\nIf you intended to paste text, please click on the Text (ASCII) panel and try again.');
+                         updateStatus('Paste cancelled');
                          return;
                     }
-                    // Estimate size for check
-                    const cleanHex = text.replace(/[^0-9A-Fa-f]/g, '');
-                    sizeCheck = cleanHex.length / 2;
                     
+                    const cleanHex = text.replace(/[^0-9A-Fa-f]/g, '');
+                    
+                    if (cleanHex.length % 2 !== 0) {
+                         showAlertDialog('Paste Error', 'Clipboard data is not valid hex (odd length). Hex data must be in pairs.');
+                         updateStatus('Paste cancelled');
+                         return; 
+                    }
+                    
+                    const sizeCheck = cleanHex.length / 2;
                     if (sizeCheck > MAX_COPY_SIZE) {
                          showAlertDialog('Paste Error', `Data size (${formatFileSize(sizeCheck)}) exceeds the limit (${formatFileSize(MAX_COPY_SIZE)}).`);
+                         updateStatus('Paste cancelled');
                          return;
                     }
 
-                    if (cleanHex.length % 2 !== 0) { showAlertDialog('Paste Error', 'Clipboard data is not valid hex (odd length). Hex data must be in pairs.'); return; }
                     data = new Uint8Array(sizeCheck);
-                    for(let i=0; i<cleanHex.length; i+=2) {
-                        data[i/2] = parseInt(cleanHex.substr(i, 2), 16);
+                    
+                    const totalChars = cleanHex.length;
+                    const CHUNK_SIZE = 200000; // ~100KB output per chunk
+                    
+                    for (let i = 0; i < totalChars; i += CHUNK_SIZE) {
+                        const end = Math.min(i + CHUNK_SIZE, totalChars);
+                        for (let j = i; j < end; j += 2) {
+                            data[j / 2] = parseInt(cleanHex.substr(j, 2), 16);
+                        }
+                        
+                        if (totalChars > 500000) { // Update progress for significant amounts
+                            const pct = Math.floor((end / totalChars) * 100);
+                            updateStatus(`Pasting Hex... ${pct}%`);
+                            await new Promise(r => requestAnimationFrame(r));
+                        }
                     }
+
                 } else {
-                    sizeCheck = new TextEncoder().encode(text).length;
-                    if (sizeCheck > MAX_COPY_SIZE) {
-                         showAlertDialog('Paste Error', `Data size (${formatFileSize(sizeCheck)}) exceeds the limit (${formatFileSize(MAX_COPY_SIZE)}).`);
+                    updateStatus('Processing text...');
+                    await new Promise(r => requestAnimationFrame(r));
+                    
+                    data = new TextEncoder().encode(text);
+                    if (data.length > MAX_COPY_SIZE) {
+                         showAlertDialog('Paste Error', `Data size (${formatFileSize(data.length)}) exceeds the limit (${formatFileSize(MAX_COPY_SIZE)}).`);
+                         updateStatus('Paste cancelled');
                          return;
                     }
-                    data = new TextEncoder().encode(text);
                 }
 
                 if (data.length === 0) return;
 
-                // Validation for Overwrite at end of file
                 if (overwrite) {
                     if (offset + data.length > state.doc.size) {
                          showAlertDialog('Paste Error', `The pasted data (${data.length} bytes) exceeds the remaining file size (${state.doc.size - offset} bytes).\n\nOverwrite mode cannot extend the file size. Please use "Paste Insert" if you wish to insert these bytes.`);
+                         updateStatus('Paste cancelled');
                          return;
                     }
                 }
 
                 pushHistory(activeFileNum, { type: overwrite ? 'Paste Overwrite' : 'Paste Insert', count: data.length, offset: offset });
+                
+                updateStatus('Inserting...');
+                await new Promise(r => requestAnimationFrame(r));
 
                 if (overwrite) {
                     state.doc.delete(offset, data.length);
@@ -3664,7 +3711,4 @@ THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR I
             updateStatus(`Deleted ${len} bytes`);
         }
 
-    </script>
-<script type="module" src="/index.tsx"></script>
-</body>
-</html>
+    </script><script type="module" src="/index.tsx"></script>

@@ -1,13 +1,13 @@
 // 1. **CRITICAL CHANGE:** Increment the version name for every new deployment.
 // Changing this string forces the browser to treat it as a new service worker.
-const CACHE_NAME = 'hex-editor-v2'; // Updated from 'hex-editor-v1'
+const CACHE_NAME = 'hex-editor-v1.0.0'; // Updated from 'hex-editor-v1'
 
 const ASSETS = [
     './',
     './index.html',
     './manifest.json',
     './icon.svg',
-    // Ensure all new assets (like new JS/CSS bundles) are listed here if you have them
+    // Ensure all new assets (like new JS/CSS bundles) are listed here
 ];
 
 self.addEventListener('install', (e) => {
@@ -19,7 +19,7 @@ self.addEventListener('install', (e) => {
         })
     );
     // Optional: Use skipWaiting() to activate the new SW immediately after installation
-    // self.skipWaiting(); 
+    self.skipWaiting(); 
 });
 
 self.addEventListener('activate', (e) => {
@@ -39,7 +39,7 @@ self.addEventListener('activate', (e) => {
         })
     );
     // Optional: Use clients.claim() to control current open pages immediately
-    // return self.clients.claim();
+    return self.clients.claim();
 });
 
 self.addEventListener('fetch', (e) => {
