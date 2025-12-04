@@ -8,7 +8,7 @@
 
   [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
   [![Platform](https://img.shields.io/badge/Platform-Web%20%7C%20PWA%20%7C%20Windows-blueviolet)](https://rebelliousx.github.io/Hex-Editor-Pro/)
-  [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](http://makeapullrequest.com)
+  
 
   <p align="center">
     <a href="#features">Features</a> •
