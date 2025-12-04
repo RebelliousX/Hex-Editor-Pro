@@ -1,0 +1,3575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Hex Editor Pro</title>
+    <meta name="description" content="Professional Hex Editor PWA with advanced compare functionality" />
+    <meta name="theme-color" content="#2b2b2b" />
+    <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48cGF0aCBkPSJNNTAgNUw5My4zIDMwVjc1TDUwIDEwMEw2LjcgNzVWMzBaIiBmaWxsPSIjMjE5NmYzIiBzdHJva2U9IiMxOTc2ZDIiIHN0cm9rZS13aWR0aD0iMiIvPjx0ZXh0IHg9IjUwIiB5PSI2MyIgZm9udC1mYW1pbHk9Im1vbm9zcGFjZSIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9ImJvbGQiIGZpbGw9IndoaXRlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj4weDwvdGV4dD48L3N2Zz4=" />
+    <link rel="manifest" href="manifest.json">
+
+    <style>
+        :root {
+            --bg-primary: #fafafa;
+            --bg-secondary: #f0f0f0;
+            --bg-hover: rgba(76, 175, 80, 0.2);
+            --bg-hover-byte: rgba(76, 175, 80, 0.33);
+            /* Radial Gradient for Selection */
+            --bg-selection: radial-gradient(circle, rgba(33, 150, 243, 0.25) 0%, rgba(33, 150, 243, 0.1) 100%);
+            --bg-selection-inactive: radial-gradient(circle, rgba(255, 152, 0, 0.25) 0%, rgba(255, 152, 0, 0.1) 100%);
+            --bg-diff: linear-gradient(90deg, rgba(244, 67, 54, 0.2) 0%, rgba(244, 67, 54, 0.05) 100%);
+            --bg-diff-strong: rgba(244, 67, 54, 0.4);
+            --bg-selected-byte: linear-gradient(135deg, rgba(33, 150, 243, 0.7) 0%, rgba(255,255,255,0.3) 100%);
+            --text-primary: #212121;
+            --text-secondary: #757575;
+            --border-color: #e0e0e0;
+            --menu-bg: #2b2b2b;
+            --menu-text: #e0e0e0;
+            --menu-hover: #3c3c3c;
+            --accent-color: #2196f3;
+            --accent-color-inactive: #FF9800;
+            --accent-hover: #1976d2;
+            --font-family: 'Fira Code', 'Consolas', 'Monaco', 'Courier New', monospace;
+            --font-size: 20px;
+            --row-height: 20px;
+            --byte-vpad: calc((var(--row-height) - var(--font-size)) / 2);
+            --bytes-per-row: 16;
+            
+            --btn-hover: #e0e0e0;
+
+            /* Scrollbar Colors - Light Mode */
+            --scrollbar-track: #f0f0f0; 
+            --scrollbar-thumb-start: #ff512f;
+            --scrollbar-thumb-end: #dd2476;
+            --scrollbar-thumb-hover-start: #ff7657;
+            --scrollbar-thumb-hover-end: #ff4d94;
+        }
+
+        .dark-mode {
+            --bg-primary: #1e1e1e;
+            --bg-secondary: #252525;
+            --bg-diff: linear-gradient(90deg, rgba(244, 67, 54, 0.3) 0%, rgba(244, 67, 54, 0.1) 100%);
+            --bg-diff-strong: rgba(244, 67, 54, 0.6);
+            --text-primary: #e0e0e0;
+            --text-secondary: #9e9e9e;
+            --border-color: #424242;
+            --menu-bg: #252526;
+            --menu-text: #cccccc;
+            --menu-hover: #3e3e42;
+            --accent-color: #4ec9b0;
+            --accent-color-inactive: #FFB74D;
+            --accent-hover: #3da892;
+            
+            --btn-hover: #3e3e42;
+
+            /* Scrollbar Colors - Dark Mode */
+            --scrollbar-track: #2d2d2d;
+            --scrollbar-thumb-start: #00bcd4;
+            --scrollbar-thumb-end: #3f51b5;
+            --scrollbar-thumb-hover-start: #4dd0e1;
+            --scrollbar-thumb-hover-end: #7986cb;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: var(--font-family);
+            font-size: var(--font-size);
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            overflow: hidden;
+            user-select: none;
+            line-height: 1.2;
+        }
+
+        /* --- Custom Scrollbars --- */
+        ::-webkit-scrollbar { width:16px; height:16px; }
+        ::-webkit-scrollbar-track { 
+            background: var(--scrollbar-track); 
+            border-left: 1px solid var(--border-color);
+        }
+        ::-webkit-scrollbar-thumb { 
+            background: linear-gradient(135deg, var(--scrollbar-thumb-start), var(--scrollbar-thumb-end));
+            border: 3px solid transparent;
+            background-clip: content-box;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.4);
+        }
+        ::-webkit-scrollbar-thumb:hover { 
+            background: linear-gradient(135deg, var(--scrollbar-thumb-hover-start), var(--scrollbar-thumb-hover-end));
+            border: 3px solid transparent;
+            background-clip: content-box;
+        }
+        ::-webkit-scrollbar-corner { background: var(--scrollbar-track); }
+
+        .menu-bar {
+            background-color: var(--menu-bg);
+            color: var(--menu-text);
+            display: flex;
+            align-items: center;
+            height: 42px;
+            border-bottom: 1px solid var(--border-color);
+            z-index: 1000;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            font-family: var(--font-family);
+        }
+
+        .app-icon {
+            width: 24px;
+            height: 24px;
+            margin-left: 12px;
+            margin-right: 4px;
+            filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5));
+        }
+
+        .menu-item { padding: 0 16px; height: 100%; display:flex; align-items:center; cursor:pointer; position:relative; transition:background-color .15s; font-weight:500; }
+        .menu-item:hover { background-color: var(--menu-hover); }
+        
+        /* Updated Submenu Style */
+        .submenu { 
+            position:absolute; top:100%; left:0; 
+            background: rgba(30, 30, 30, 0.75); 
+            border: 1px solid rgba(255, 255, 255, 0.15); 
+            min-width:20em; display:none; 
+            box-shadow: 0 16px 40px rgba(0,0,0,0.4); 
+            border-radius:8px; margin-top:2px; z-index:1001; 
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            color: #e0e0e0;
+        }
+        /* Consistent look in dark mode */
+        .dark-mode .submenu { background: rgba(30, 30, 30, 0.75); }
+        
+        .menu-item.active .submenu { display:block; }
+        .submenu-item { padding:8px 16px; cursor:pointer; transition:background-color .15s; white-space:nowrap; color: inherit; }
+        .submenu-item:hover { background:var(--menu-hover); }
+        .submenu-item.disabled { color: var(--text-secondary); opacity: 0.5; pointer-events: none; }
+        .submenu-separator { height:1px; background: rgba(255, 255, 255, 0.15); margin:6px 0; }
+        .shortcut-key { float:right; color: #999; opacity: 0.7; margin-left: 2em; }
+
+        .main-container { height: calc(100vh - 42px); display:flex; flex-direction:column; }
+        .files-container { flex:1; display:flex; overflow:hidden; gap:0; } 
+        .file-container { flex:1; display:flex; flex-direction:column; border-right:1px solid var(--border-color); overflow:hidden; background:var(--bg-primary); }
+        .file-container:last-child { border-right:none; }
+        .file-header { background:var(--bg-secondary); padding:8px 16px; border-bottom:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center; font-weight:600; gap:12px; }
+        /* Adjusted file-name to allow tags to sit next to it properly */
+        .file-name { display:flex; gap:8px; align-items:center; font-weight:600; color:var(--text-primary); word-break:break-word; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .file-name::before { content:'📄'; font-size:var(--font-size); flex: 0 0 auto; }
+        .file-size { color:var(--text-secondary); font-weight:500; flex: 0 0 auto; margin-left: 8px; white-space:nowrap; }
+
+        .hex-container { flex:1; overflow:auto; position:relative; background:var(--bg-primary); scroll-behavior: auto; -webkit-overflow-scrolling: touch; }
+        
+        /* hex-content is positioned absolutely to align with virtual scroll position */
+        .hex-content { 
+            padding:0 12px; font-family:var(--font-family); font-size:var(--font-size); white-space:pre; 
+            cursor:text; letter-spacing:0.5px; position: absolute; top: 0; left: 0;
+            min-width: 100%; width: max-content; 
+        }
+        
+        /* Scroll Shim simulates the full height of the file */
+        .scroll-shim { width: 1px; visibility: hidden; }
+
+        .hex-line { display:flex; align-items:center; height:var(--row-height); position:relative; transition: background-color .12s ease; }
+        
+        /* Hover Overlay Logic */
+        .hex-line.hover-sync::after {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background: var(--bg-hover); z-index: 5; pointer-events: none; border-radius: 4px;
+        }
+
+        /* Updated Address width to support 40-bit (10 hex digits + 0x) -> 12 chars. 15ch gives comfortable spacing. */
+        .address { color:var(--accent-color); margin-right:1ch; width:15ch; flex:0 0 auto; user-select:none; font-weight:500; }
+        
+        .hex-bytes { display:grid; grid-template-columns: repeat(var(--bytes-per-row), minmax(2.3em, 1fr)); gap:0; margin-right:1em; flex:1 0 auto; padding:2px; }
+        .hex-byte { text-align:center; min-width:2em; cursor:pointer; padding: max(0px, var(--byte-vpad)) 2px; border-radius:4px; display:flex; align-items:center; justify-content:center; user-select:none; background: transparent; width:100%; box-sizing:border-box; position: relative; z-index: 1; }
+        
+        .ascii-bytes { display:grid; grid-template-columns: repeat(var(--bytes-per-row), minmax(1.5em, 1fr)); gap:0; padding:2px; flex-shrink: 0; }
+        .ascii-byte { text-align:center; min-width:1em; cursor:pointer; padding: max(0px, var(--byte-vpad)) 2px; border-radius:2px; transition:all .1s; user-select:none; background: transparent; width:100%; box-sizing:border-box; display:flex; align-items:center; justify-content:center; position: relative; z-index: 1; }
+        
+        .hex-byte.placeholder, .ascii-byte.placeholder { opacity:0.3; color: var(--text-secondary); pointer-events: none; }
+        .hex-byte.empty, .ascii-byte.empty { opacity:0.5; color: var(--text-secondary); }
+
+        .byte-diff { background: var(--bg-diff-strong) !important; font-weight:600; z-index: 10 !important; }
+        
+        .hex-byte.selected-byte, .ascii-byte.selected-byte { background: var(--bg-selection) !important; font-weight:600; z-index: 1; }
+        
+        .hex-byte.selected-byte.inactive, .ascii-byte.selected-byte.inactive { background: var(--bg-selection-inactive) !important; }
+        .hex-byte.inactive, .ascii-byte.inactive { --accent-color: var(--accent-color-inactive); }
+
+        @keyframes cursor-pulse {
+            0% { box-shadow: 0 0 0 2px var(--accent-color), 0 0 3px var(--accent-color); }
+            50% { box-shadow: 0 0 0 2px var(--accent-color), 0 0 11px var(--accent-color); }
+            100% { box-shadow: 0 0 0 2px var(--accent-color), 0 0 3px var(--accent-color); }
+        }
+
+        .hex-byte.active-cursor, .ascii-byte.active-cursor {
+            z-index: 11;
+            box-shadow: 0 0 0 2px var(--accent-color), 0 0 6px var(--accent-color);
+            border-radius: 2px;
+            animation: cursor-pulse 1.5s infinite ease-in-out;
+        }
+
+        .hex-byte.edited, .ascii-byte.edited { color: #d32f2f; font-weight: 700; }
+        .dark-mode .hex-byte.edited, .dark-mode .ascii-byte.edited { color: #ff5252; }
+
+        .hex-byte.selected-byte.selection-start:not(.selection-end) { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+        .hex-byte.selected-byte.selection-end:not(.selection-start) { border-top-left-radius: 0; border-bottom-left-radius: 0; }
+        .hex-byte.selected-byte:not(.selection-start):not(.selection-end) { border-radius: 0; }
+        .ascii-byte.selected-byte.selection-start:not(.selection-end) { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+        .ascii-byte.selected-byte.selection-end:not(.selection-start) { border-top-left-radius: 0; border-bottom-left-radius: 0; }
+        .ascii-byte.selected-byte:not(.selection-start):not(.selection-end) { border-radius: 0; }
+
+        /* Moved hover-strong to here for priority over selection/diff */
+        .hex-byte.hover-strong, .ascii-byte.hover-strong { background: var(--bg-hover-byte) !important; z-index: 20 !important; }
+
+        .status-bar { background:var(--bg-secondary); border-top:1px solid var(--border-color); padding:4px 16px; display:flex; justify-content:space-between; align-items:center; color:var(--text-secondary); font-weight:500; }
+        
+        .offset-display { position:fixed; background: rgba(0, 0, 0, 0.6); border:1px solid rgba(255, 255, 255, 0.15); padding:6px 10px; border-radius:4px; display:none; z-index:100; font-weight:500; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); color:#fff; white-space:nowrap; width:auto; pointer-events: none; }
+        .dark-mode .offset-display { background: rgba(200, 200, 200, 0.7); border:1px solid rgba(0, 0, 0, 0.12); color:#000; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+        .offset-display.visible { display:block; }
+        
+        .modal { position:fixed; inset:0; background:rgba(0,0,0,.5); display:none; align-items:center; justify-content:center; z-index:2000; backdrop-filter: blur(4px); }
+        .modal.visible { display:flex; }
+        
+        /* Updated Modal Content for Glassmorphism */
+        .modal-content { 
+            background: rgba(250, 250, 250, 0.85); /* Light mode glass */
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            
+            border-radius: 16px; 
+            padding: 24px; 
+            min-width: 450px; 
+            max-width: 80%; 
+            box-shadow: 0 16px 40px rgba(0,0,0,0.35); 
+            transform-origin: center; 
+            transition: transform 0.1s ease-out; 
+            color: var(--text-primary);
+        }
+
+        .dark-mode .modal-content {
+            background: rgba(30, 30, 30, 0.65); /* Dark mode glass - slightly more transparent */
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        /* Restrict width for Alert and Save dialogs */
+        #alertDialog .modal-content, #saveFileDialog .modal-content { max-width: 50%; }
+        #alertDialog .modal-body, #saveFileDialog .modal-body { overflow-wrap: break-word; word-wrap: break-word; }
+
+        .modal-header { font-size:18px; font-weight:600; margin-bottom:20px; color:var(--text-primary); display:flex; gap:8px; align-items:center; }
+        .modal-body { margin-bottom:20px; color: var(--text-primary); }
+        #settingsDialog .modal-body { max-height: calc(70vh - 120px); overflow-y: auto; overflow-x: hidden; padding-right: 12px; }
+        .modal-footer { display:flex; justify-content:flex-end; gap:8px; }
+
+        .btn { padding:8px 16px; border:1px solid var(--border-color); background:var(--bg-secondary); color:var(--text-primary); border-radius:4px; cursor:pointer; font-weight:500; transition:all .15s ease; }
+        .btn:hover { background:var(--btn-hover); border-color:var(--accent-color); transform:translateY(-1px); }
+        .btn-primary { background:var(--accent-color); color:#fff; border-color:var(--accent-color); }
+        .btn-primary:hover { background:var(--accent-hover); border-color:var(--accent-hover); }
+
+        .form-group { margin-bottom:16px; }
+        .form-label { display:block; margin-bottom:6px; color:var(--text-secondary); font-weight:500; }
+        .form-control { width:100%; padding:8px 12px; border:1px solid var(--border-color); border-radius:4px; background:var(--bg-primary); color:var(--text-primary); }
+        
+        .slider-container { display:flex; gap:12px; align-items:center; }
+        .slider { 
+            flex:1; -webkit-appearance:none; appearance: none; height:4px; border-radius:2px; background:var(--bg-secondary); outline:none; 
+        }
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: var(--text-secondary);
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+        }
+        .slider::-webkit-slider-thumb:hover {
+            background: var(--accent-color);
+            transform: scale(1.2);
+        }
+        .dark-mode .slider {
+            background: #555; 
+        }
+        .dark-mode .slider::-webkit-slider-thumb {
+            background: #ccc; 
+        }
+        .dark-mode .slider::-webkit-slider-thumb:hover {
+            background: var(--accent-color);
+        }
+        
+        .spin-box { width:60px; padding:6px 8px; border:1px solid var(--border-color); border-radius:4px; background:var(--bg-primary); color:var(--text-primary); }
+        .color-picker { width:40px; height:24px; border:1px solid var(--border-color); border-radius:4px; cursor:pointer; }
+        
+        .hidden { display:none !important; }
+
+        .context-menu {
+            position: fixed; background: rgba(200,200,200,0.75); color: #000;
+            border: 1px solid rgba(0,0,0,0.12); box-shadow: 0 6px 18px rgba(0,0,0,.35);
+            border-radius: 6px; padding: 6px 0; z-index: 3000; min-width: 18em;
+            display: none; font-weight: 500; user-select: none;
+            backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+            max-height: 90vh; overflow-y: auto;
+        }
+        .dark-mode .context-menu { background: var(--menu-bg); color: var(--menu-text); border: 1px solid var(--border-color); }
+        .context-menu.visible { display: block; }
+        .context-menu-item { padding: 8px 14px; cursor: pointer; transition: background .12s, color .12s; color: inherit; white-space: nowrap; }
+        .context-menu-item:hover { background: rgba(0,0,0,0.06); color: inherit; }
+        .dark-mode .context-menu-item:hover { background: var(--menu-hover); color: var(--menu-text); }
+        .context-menu-item.disabled { opacity: 0.45; pointer-events: none; cursor: default; }
+
+        .hex-line.diff .hex-bytes, .hex-line.diff .ascii-bytes { background: var(--bg-diff); border-radius: 4px; }
+
+        /* Help Dialog Styles */
+        .help-section { margin-bottom: 20px; }
+        .help-title { font-weight: 600; margin-bottom: 8px; color: var(--accent-color); font-size: 1.1em; }
+        .help-list { list-style-type: disc; margin-left: 20px; color: var(--text-primary); }
+        .help-list li { margin-bottom: 6px; font-size: 0.95em; line-height: 1.4; }
+        
+        /* About Dialog Styling */
+        /* Removed background to use modal-content glass style */
+        .about-container { 
+            text-align: center; position: relative; overflow: hidden; padding: 40px 30px; 
+        }
+        .about-bg-glow {
+            position: absolute; top: -100px; left: -100px; width: 300px; height: 300px; 
+            background: radial-gradient(circle, var(--accent-color) 0%, transparent 70%);
+            opacity: 0.15; pointer-events: none;
+        }
+        .about-bg-glow-2 {
+            position: absolute; bottom: -100px; right: -100px; width: 300px; height: 300px; 
+            background: radial-gradient(circle, #E91E63 0%, transparent 70%);
+            opacity: 0.1; pointer-events: none;
+        }
+
+        .about-animation-container {
+            position: relative;
+            width: 100px;
+            height: 120px;
+            margin: 0 auto 10px auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+        }
+
+        .about-logo-img {
+            width: 64px;
+            height: 64px;
+            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.2));
+            animation: float-icon 3s ease-in-out infinite;
+            z-index: 2;
+        }
+
+        .about-shadow {
+            width: 64px;
+            height: 8px;
+            background: radial-gradient(ellipse at center, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0) 70%);
+            border-radius: 50%;
+            margin-top: 20px;
+            animation: shadow-pulse 3s ease-in-out infinite;
+            z-index: 1;
+        }
+        
+        .dark-mode .about-shadow {
+             background: radial-gradient(ellipse at center, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0) 70%);
+        }
+
+        @keyframes float-icon {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-16px); }
+        }
+
+        @keyframes shadow-pulse {
+            0%, 100% {
+                transform: scale(1);
+                opacity: 0.4;
+                filter: blur(2px);
+            }
+            50% {
+                transform: scale(0.6);
+                opacity: 0.2;
+                filter: blur(4px);
+            }
+        }
+        
+        .about-title { 
+            font-size: 32px; font-weight: 800; margin-bottom: 8px;
+            color: var(--text-primary);
+            letter-spacing: -0.5px;
+        }
+        .about-version { 
+            font-size: 14px; color: var(--text-secondary); margin-bottom: 32px; 
+            font-weight: 600; letter-spacing: 2px; text-transform: uppercase; 
+            background: rgba(128,128,128,0.1); padding: 4px 12px; border-radius: 20px;
+            display: inline-block;
+        }
+        
+        .about-card { 
+            background: rgba(255,255,255,0.05); border-radius: 16px; padding: 24px; 
+            border: 1px solid rgba(128,128,128,0.1); margin-bottom: 32px; text-align: left;
+            backdrop-filter: blur(12px); box-shadow: 0 8px 32px rgba(0,0,0,0.05);
+        }
+        .dark-mode .about-card { background: rgba(0,0,0,0.2); }
+        
+        .about-row { display: flex; justify-content: space-between; margin-bottom: 14px; font-size: 15px; border-bottom: 1px solid rgba(128,128,128,0.1); padding-bottom: 14px; }
+        .about-row:last-child { margin-bottom: 0; border-bottom: none; padding-bottom: 0; }
+        .about-label { color: var(--text-secondary); font-weight: 500; }
+        .about-value { font-weight: 600; color: var(--text-primary); }
+        
+        .about-desc { font-size: 14px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 32px; max-width: 400px; margin-left: auto; margin-right: auto; }
+        
+        .about-social { display: flex; justify-content: center; gap: 24px; margin-bottom: 12px; }
+        .social-link { 
+            width: 48px; height: 48px; border-radius: 50%; background: var(--bg-primary);
+            display: flex; align-items: center; justify-content: center; font-size: 22px;
+            color: var(--text-primary); text-decoration: none; border: 1px solid var(--border-color);
+            transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        .social-link:hover { transform: scale(1.15) rotate(5deg); border-color: var(--accent-color); color: var(--accent-color); box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
+
+        /* Go To Dialog Styles */
+        .goto-info-block { 
+            margin-bottom: 20px; 
+            background: var(--bg-secondary); 
+            padding: 12px 16px; 
+            border-radius: 6px; 
+            border-left: 4px solid var(--accent-color);
+        }
+        .goto-info-line { margin-bottom: 4px; line-height: 1.4; font-size: 14px; color: var(--text-secondary); }
+        .goto-info-line:last-child { margin-bottom: 0; }
+        .goto-info-line.panel { font-weight: 700; color: var(--accent-color); text-transform: uppercase; letter-spacing: 0.05em; font-size: 12px; }
+        .goto-info-line.file { font-weight: 600; color: var(--text-primary); font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        
+        /* Revised Range Style */
+        .goto-info-line.range { 
+            font-family: var(--font-family); 
+            font-size: 15px; 
+            background: rgba(0,0,0,0.05); 
+            padding: 6px 10px; 
+            border-radius: 4px; 
+            display: inline-block; 
+            margin-top: 8px;
+            color: var(--accent-color);
+            font-weight: 700;
+            border: 1px solid var(--border-color);
+        }
+        .dark-mode .goto-info-line.range { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2); }
+        
+        #gotoErrorTooltip { z-index: 2500; }
+
+        /* --- Modified & Size Changed Tags --- */
+        @keyframes breathe-glow {
+            0% { box-shadow: 0 0 4px rgba(255, 0, 0, 0.2); transform: scale(1); }
+            50% { box-shadow: 0 0 12px rgba(255, 0, 0, 0.5); transform: scale(1.03); }
+            100% { box-shadow: 0 0 4px rgba(255, 0, 0, 0.2); transform: scale(1); }
+        }
+        .status-tag {
+            font-size: 11px; font-weight: 700; color: #000;
+            /* Updated to white-pinkish center */
+            background: radial-gradient(circle, #fff0f5 30%, #ffcdd2 80%, #ef5350 100%);
+            border: 1px solid #d32f2f;
+            padding: 2px 8px; border-radius: 12px;
+            margin-left: 10px;
+            animation: breathe-glow 2.5s infinite ease-in-out;
+            display: inline-block; vertical-align: middle;
+            white-space: nowrap; flex-shrink: 0;
+            line-height: 1.3;
+        }
+
+        /* Save Dialog Warning */
+        .save-warning {
+            font-size: 0.9em; color: #c62828; background: #ffebee;
+            padding: 12px; border-radius: 6px; margin-bottom: 20px;
+            border-left: 5px solid #d32f2f; line-height: 1.5;
+            font-weight: 500;
+        }
+        .dark-mode .save-warning {
+            background: #3e2723; color: #ff8a80; border-left-color: #ff5252;
+        }
+
+        /* Custom Alert Message Style */
+        #alertMessage { white-space: pre-wrap; line-height: 1.5; }
+
+    </style>
+<link rel="stylesheet" href="/index.css">
+</head>
+<body>
+    <nav class="menu-bar" id="menuBar">
+        <img class="app-icon" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48cGF0aCBkPSJNNTAgNUw5My4zIDMwVjc1TDUwIDEwMEw2LjcgNzVWMzBaIiBmaWxsPSIjMjE5NmYzIiBzdHJva2U9IiMxOTc2ZDIiIHN0cm9rZS13aWR0aD0iMiIvPjx0ZXh0IHg9IjUwIiB5PSI2MyIgZm9udC1mYW1pbHk9Im1vbm9zcGFjZSIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9ImJvbGQiIGZpbGw9IndoaXRlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj4weDwvdGV4dD48L3N2Zz4=" alt="App Icon">
+        <div class="menu-item" data-menu="file" id="fileMenuItem">
+            File
+            <div class="submenu" id="fileSubmenu"></div>
+        </div>
+
+        <div class="menu-item" data-menu="edit">
+            Edit
+            <div class="submenu">
+                <div class="submenu-item" data-action="undo">↩️ Undo<span class="shortcut-key">CTRL+Z</span></div>
+                <div class="submenu-item" data-action="redo">↪️ Redo<span class="shortcut-key">CTRL+Y</span></div>
+                <div class="submenu-separator"></div>
+                <div class="submenu-item" data-action="find">🔍 Find...<span class="shortcut-key">CTRL+F</span></div>
+                <div class="submenu-item" data-action="findNext">➡️ Find Next<span class="shortcut-key">F3</span></div>
+                <div class="submenu-item" data-action="replace">🔁 Replace...<span class="shortcut-key">CTRL+R</span></div>
+                <div class="submenu-item" data-action="goto">🏹 Go to Offset...<span class="shortcut-key">CTRL+G</span></div>
+                <div class="submenu-separator"></div>
+                <div class="submenu-item" data-action="cut">✂️ Cut<span class="shortcut-key">CTRL+X</span></div>
+                <div class="submenu-item" data-action="copyHex">🔢 Copy Hex<span class="shortcut-key">CTRL+C</span></div>
+                <div class="submenu-item" data-action="copyAscii">🔤 Copy Text<span class="shortcut-key">CTRL+T</span></div>
+                <div class="submenu-item" data-action="copyOffset">🎯 Copy Offset<span class="shortcut-key">CTRL+E</span></div>
+                <div class="submenu-item" data-action="pasteOverwrite">📋 Paste Overwrite<span class="shortcut-key">CTRL+V</span></div>
+                <div class="submenu-item" data-action="pasteInsert">📋 Paste Insert<span class="shortcut-key">CTRL+I</span></div>
+                <div class="submenu-item" data-action="delete">🗑️ Delete<span class="shortcut-key">DEL</span></div>
+            </div>
+        </div>
+
+        <div class="menu-item" data-menu="options">
+            Options
+            <div class="submenu">
+                <div class="submenu-item" data-action="toggleTheme">🌓 Toggle Theme</div>
+                <div class="submenu-item" data-action="settings">⚙️ Settings...</div>
+            </div>
+        </div>
+        
+        <div class="menu-item" data-menu="help">
+            Help
+            <div class="submenu">
+                <div class="submenu-item" data-action="viewHelp">❓ View Help</div>
+                <div class="submenu-item" data-action="viewLicense">📜 License</div>
+                <div class="submenu-item" data-action="about">ℹ️ About</div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="main-container">
+        <div class="files-container" id="filesContainer">
+            <div class="file-container" id="file1Container">
+                <div class="file-header" id="fileHeader1">
+                    <div style="display:flex; align-items:center; flex:1; overflow:hidden;">
+                        <div class="file-name" id="file1Name">No file loaded</div>
+                        <div id="file1Tags" style="display:flex; align-items:center;"></div>
+                    </div>
+                    <div class="file-size" id="file1Size"></div>
+                </div>
+                <div class="hex-container" id="hexContainer1">
+                    <div class="scroll-shim" id="scrollShim1"></div>
+                    <div class="hex-content" id="hexContent1"></div>
+                </div>
+            </div>
+
+            <div class="file-container hidden" id="file2Container">
+                <div class="file-header" id="fileHeader2">
+                     <div style="display:flex; align-items:center; flex:1; overflow:hidden;">
+                        <div class="file-name" id="file2Name">No file loaded</div>
+                        <div id="file2Tags" style="display:flex; align-items:center;"></div>
+                    </div>
+                    <div class="file-size" id="file2Size"></div>
+                </div>
+                <div class="hex-container" id="hexContainer2">
+                    <div class="scroll-shim" id="scrollShim2"></div>
+                    <div class="hex-content" id="hexContent2"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="status-bar">
+            <div class="status-left">
+                <span id="statusMessage">Ready</span>
+            </div>
+            <div class="status-right">
+                <span id="cursorPosition">Offset: 0x0000000000 (0)</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="offset-display" id="offsetDisplay">Offset: <span id="hoverOffset">0x0000000000</span></div>
+    <div class="offset-display" id="gotoErrorTooltip">Offset out of range!</div>
+
+    <div id="contextMenu" class="context-menu" role="menu" aria-hidden="true">
+        <div id="ctxCopySelection" class="context-menu-item">🔢 Copy Hex<span class="shortcut-key">CTRL+C</span></div>
+        <div id="ctxCopySelectionAscii" class="context-menu-item">🔤 Copy Text<span class="shortcut-key">CTRL+T</span></div>
+        <div id="ctxCopyOffset" class="context-menu-item">🎯 Copy Offset<span class="shortcut-key">CTRL+E</span></div>
+        <div style="height:1px; background:var(--border-color); margin:6px 0;"></div>
+        <div id="ctxGoto" class="context-menu-item">🏹 Go to Offset...<span class="shortcut-key">CTRL+G</span></div>
+        <div style="height:1px; background:var(--border-color); margin:6px 0;"></div>
+        <div id="ctxCut" class="context-menu-item">✂️ Cut<span class="shortcut-key">CTRL+X</span></div>
+        <div id="ctxDelete" class="context-menu-item">🗑️ Delete<span class="shortcut-key">DEL</span></div>
+        <div style="height:1px; background:var(--border-color); margin:6px 0;"></div>
+        <div id="ctxPasteOverwrite" class="context-menu-item">📋 Paste Overwrite<span class="shortcut-key">CTRL+V</span></div>
+        <div id="ctxPasteInsert" class="context-menu-item">📋 Paste Insert<span class="shortcut-key">CTRL+I</span></div>
+    </div>
+
+    <input type="file" id="fileInput" class="hidden" onchange="handleFileSelect(event)">
+    <input type="file" id="file2Input" class="hidden" onchange="handleSecondFileSelect(event)">
+
+    <!-- Alert Dialog -->
+    <div class="modal" id="alertDialog">
+        <div class="modal-content">
+            <div class="modal-header" id="alertTitle">Alert</div>
+            <div class="modal-body" id="alertMessage"></div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" onclick="closeAlertDialog()">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Find Dialog -->
+    <div class="modal" id="findDialog">
+        <div class="modal-content">
+            <div class="modal-header">🔍 Find</div>
+            <div class="modal-body">
+                <div class="form-group" id="findScopeGroup" style="display:none;">
+                    <label class="form-label">Search Scope</label>
+                    <div style="display: flex; gap: 16px;">
+                        <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                            <input type="radio" name="findScope" value="left" id="findScopeLeft" checked> Left Panel
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                            <input type="radio" name="findScope" value="right" id="findScopeRight"> Right Panel
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                            <input type="radio" name="findScope" value="both" id="findScopeBoth"> Both Panels
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Search Mode</label>
+                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                        <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                            <input type="radio" name="findMode" value="text" id="findModeText" checked>
+                            Search Text (ascii)
+                        </label>
+                        <div id="matchCaseContainer" style="margin-left: 24px;">
+                            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                                <input type="checkbox" id="matchCase"> Match Case
+                            </label>
+                        </div>
+                        <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                            <input type="radio" name="findMode" value="hex" id="findModeHex">
+                            Search bytes (Hex values)
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Search Pattern</label>
+                    <input type="text" class="form-control" id="findInput" placeholder="Enter text..." spellcheck="false">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" onclick="closeFindDialog()">Cancel</button>
+                <button class="btn btn-primary" onclick="performFind()">Find</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Replace Dialog -->
+    <div class="modal" id="replaceDialog">
+        <div class="modal-content">
+            <div class="modal-header">🔁 Replace</div>
+            <div class="modal-body">
+                <div class="form-group" id="replaceScopeGroup" style="display:none;">
+                    <label class="form-label">Replace Scope</label>
+                    <div style="display: flex; gap: 16px;">
+                        <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                            <input type="radio" name="replaceScope" value="left" id="replaceScopeLeft" checked> Left Panel
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                            <input type="radio" name="replaceScope" value="right" id="replaceScopeRight"> Right Panel
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                            <input type="radio" name="replaceScope" value="both" id="replaceScopeBoth"> Both Panels
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Mode</label>
+                    <div style="display: flex; flex-direction: row; gap: 20px;">
+                        <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                            <input type="radio" name="replaceMode" value="hex" id="replaceModeHex" checked>
+                            Hex
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                            <input type="radio" name="replaceMode" value="text" id="replaceModeText">
+                            Text
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Find</label>
+                    <input type="text" class="form-control" id="findInputReplace" placeholder="Enter hex (e.g. 1A 2B)" spellcheck="false">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Replace with</label>
+                    <input type="text" class="form-control" id="replaceInput" placeholder="Enter hex (e.g. CC DD)" spellcheck="false">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" onclick="closeReplaceDialog()">Cancel</button>
+                <button class="btn" onclick="performReplace(true)">Replace All</button>
+                <button class="btn btn-primary" onclick="performReplace(false)">Replace</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Go to Offset Dialog -->
+    <div class="modal" id="gotoDialog">
+        <div class="modal-content">
+            <div class="modal-header">🏹 Go to Offset</div>
+            <div class="modal-body">
+                <div class="goto-info-block">
+                    <div id="gotoPanelInfo" class="goto-info-line panel hidden"></div>
+                    <div id="gotoFileInfo" class="goto-info-line file"></div>
+                    <div id="gotoRangeInfo" class="goto-info-line range"></div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Target Offset (Hex)</label>
+                    <input type="text" class="form-control" id="gotoInput" placeholder="0x0000000000">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" onclick="closeGotoDialog()">Cancel</button>
+                <button class="btn btn-primary" onclick="performGoto()">Go</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Save As Dialog -->
+    <div class="modal" id="saveFileDialog">
+        <div class="modal-content">
+            <div class="modal-header">💾 Save As</div>
+            <div class="modal-body">
+                <div class="save-warning">
+                    ⚠️ <strong>Recommendation:</strong> Choose a different name and do not overwrite the original file. Editing binary files can be risky—always keep the original file intact and safe!
+                </div>
+                <div class="form-group">
+                    <label class="form-label">File Name</label>
+                    <input type="text" class="form-control" id="saveFilenameInput" placeholder="filename.bin">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" onclick="closeSaveFileDialog()">Cancel</button>
+                <button class="btn btn-primary" onclick="confirmSaveFile()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Dialog -->
+    <div class="modal" id="settingsDialog">
+        <div class="modal-content">
+            <div class="modal-header">⚙️ Settings</div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Text Decoding</label>
+                    <select class="form-control" id="textDecodingSelect">
+                        <option value="windows-1252" selected>Windows (ANSI)</option>
+                        <option value="cp437">DOS/IBM-ASCII (OEM)</option>
+                        <option value="macintosh">Macintosh</option>
+                        <option value="ebcdic">EBCDIC</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Font Size</label>
+                    <div class="slider-container">
+                        <input type="range" class="slider" id="fontSizeSlider" min="10" max="30" value="20">
+                        <input type="number" class="spin-box" id="fontSizeSpin" min="10" max="30" value="20">
+                        <span class="slider-value">px</span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Row Height (Padding)</label>
+                    <div class="slider-container">
+                        <input type="range" class="slider" id="rowHeightSlider" min="0" max="48" value="20">
+                        <input type="number" class="spin-box" id="rowHeightSpin" min="0" max="48" value="20">
+                        <span class="slider-value">px</span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Bytes per Row</label>
+                    <select class="form-control" id="bytesPerRowSelect">
+                        <option value="8">8</option>
+                        <option value="16" selected>16</option>
+                        <option value="24">24</option>
+                        <option value="32">32</option>
+                        <option value="48">48</option>
+                        <option value="64">64</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Hover Gradient</label>
+                    <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+                        <div style="flex: 1; min-width: 180px; display: flex; align-items: center; gap: 8px;" title="Hover Gradient Start">
+                            <input type="color" id="hoverColorStart_picker" class="color-picker" style="min-width: 50px; height: 30px;">
+                            <div style="flex: 1; display: flex; align-items: center; gap: 8px;">
+                                <input type="range" id="hoverAlphaStart_slider" class="slider" min="0" max="255" step="1" title="Alpha for Beginning of Hover Gradient">
+                                <span id="hoverAlphaStart_value" style="width: 30px; text-align: right; font-variant-numeric: tabular-nums;"></span>
+                            </div>
+                        </div>
+                        <div style="flex: 1; min-width: 180px; display: flex; align-items: center; gap: 8px;" title="Hover Gradient End">
+                            <input type="color" id="hoverColorEnd_picker" class="color-picker" style="min-width: 50px; height: 30px;">
+                            <div style="flex: 1; display: flex; align-items: center; gap: 8px;">
+                                <input type="range" id="hoverAlphaEnd_slider" class="slider" min="0" max="255" step="1" title="Alpha for End of Hover Gradient">
+                                <span id="hoverAlphaEnd_value" style="width: 30px; text-align: right; font-variant-numeric: tabular-nums;"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Hover Strong Color</label>
+                    <div style="display: flex; align-items: center; gap: 16px;">
+                        <div style="flex: 1; display: flex; align-items: center; gap: 8px;" title="Hover Strong Color">
+                            <input type="color" id="hoverStrongColor_picker" class="color-picker" style="min-width: 50px; height: 30px;">
+                            <div style="flex: 1; display: flex; align-items: center; gap: 8px;">
+                                <input type="range" id="hoverStrongAlpha_slider" class="slider" min="0" max="255" step="1" title="Alpha for Hover Strong Color">
+                                <span id="hoverStrongAlpha_value" style="width: 30px; text-align: right; font-variant-numeric: tabular-nums;"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Selection Gradient</label>
+                    <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+                        <div style="flex: 1; min-width: 180px; display: flex; align-items: center; gap: 8px;" title="Selection Gradient Start">
+                            <input type="color" id="selectionColorStart_picker" class="color-picker" style="min-width: 50px; height: 30px;">
+                            <div style="flex: 1; display: flex; align-items: center; gap: 8px;">
+                                <input type="range" id="selectionAlphaStart_slider" class="slider" min="0" max="255" step="1" title="Alpha for Beginning of Selection Gradient">
+                                <span id="selectionAlphaStart_value" style="width: 30px; text-align: right; font-variant-numeric: tabular-nums;"></span>
+                            </div>
+                        </div>
+                        <div style="flex: 1; min-width: 180px; display: flex; align-items: center; gap: 8px;" title="Selection Gradient End">
+                            <input type="color" id="selectionColorEnd_picker" class="color-picker" style="min-width: 50px; height: 30px;">
+                            <div style="flex: 1; display: flex; align-items: center; gap: 8px;">
+                                <input type="range" id="selectionAlphaEnd_slider" class="slider" min="0" max="255" step="1" title="Alpha for End of Selection Gradient">
+                                <span id="selectionAlphaEnd_value" style="width: 30px; text-align: right; font-variant-numeric: tabular-nums;"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Inactive Selection Gradient</label>
+                    <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+                        <div style="flex: 1; min-width: 180px; display: flex; align-items: center; gap: 8px;" title="Inactive Selection Gradient Start">
+                            <input type="color" id="selectionInactiveColorStart_picker" class="color-picker" style="min-width: 50px; height: 30px;">
+                            <div style="flex: 1; display: flex; align-items: center; gap: 8px;">
+                                <input type="range" id="selectionInactiveAlphaStart_slider" class="slider" min="0" max="255" step="1" title="Alpha for Beginning of Inactive Selection Gradient">
+                                <span id="selectionInactiveAlphaStart_value" style="width: 30px; text-align: right; font-variant-numeric: tabular-nums;"></span>
+                            </div>
+                        </div>
+                        <div style="flex: 1; min-width: 180px; display: flex; align-items: center; gap: 8px;" title="Inactive Selection Gradient End">
+                            <input type="color" id="selectionInactiveColorEnd_picker" class="color-picker" style="min-width: 50px; height: 30px;">
+                            <div style="flex: 1; display: flex; align-items: center; gap: 8px;">
+                                <input type="range" id="selectionInactiveAlphaEnd_slider" class="slider" min="0" max="255" step="1" title="Alpha for End of Inactive Selection Gradient">
+                                <span id="selectionInactiveAlphaEnd_value" style="width: 30px; text-align: right; font-variant-numeric: tabular-nums;"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Difference Gradient</label>
+                    <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+                        <div style="flex: 1; min-width: 180px; display: flex; align-items: center; gap: 8px;" title="Difference Gradient Start">
+                            <input type="color" id="diffColorStart_picker" class="color-picker" style="min-width: 50px; height: 30px;">
+                            <div style="flex: 1; display: flex; align-items: center; gap: 8px;">
+                                <input type="range" id="diffAlphaStart_slider" class="slider" min="0" max="255" step="1" title="Alpha for Beginning of Difference Gradient">
+                                <span id="diffAlphaStart_value" style="width: 30px; text-align: right; font-variant-numeric: tabular-nums;"></span>
+                            </div>
+                        </div>
+                        <div style="flex: 1; min-width: 180px; display: flex; align-items: center; gap: 8px;" title="Difference Gradient End">
+                            <input type="color" id="diffColorEnd_picker" class="color-picker" style="min-width: 50px; height: 30px;">
+                            <div style="flex: 1; display: flex; align-items: center; gap: 8px;">
+                                <input type="range" id="diffAlphaEnd_slider" class="slider" min="0" max="255" step="1" title="Alpha for End of Difference Gradient">
+                                <span id="diffAlphaEnd_value" style="width: 30px; text-align: right; font-variant-numeric: tabular-nums;"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Difference Strong Color</label>
+                    <div style="display: flex; align-items: center; gap: 16px;">
+                        <div style="flex: 1; display: flex; align-items: center; gap: 8px;" title="Difference Strong Color">
+                            <input type="color" id="diffStrongColor_picker" class="color-picker" style="min-width: 50px; height: 30px;">
+                            <div style="flex: 1; display: flex; align-items: center; gap: 8px;">
+                                <input type="range" id="diffStrongAlpha_slider" class="slider" min="0" max="255" step="1" title="Alpha for Difference Strong Color">
+                                <span id="diffStrongAlpha_value" style="width: 30px; text-align: right; font-variant-numeric: tabular-nums;"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" onclick="closeSettingsDialog()">Cancel</button>
+                <button class="btn" onclick="restoreDefaults()">Restore Defaults</button>
+                <button class="btn btn-primary" onclick="applySettings()">Apply</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Help Dialog -->
+    <div class="modal" id="helpDialog">
+        <div class="modal-content">
+            <div class="modal-header">❓ Help</div>
+            <div class="modal-body" style="max-height: 60vh; overflow-y: auto;">
+                <div class="help-section">
+                    <div class="help-title">File Operations</div>
+                    <ul class="help-list">
+                        <li><strong>Open:</strong> Opens a single file.</li>
+                        <li><strong>Save As:</strong> Save your changes to a file.</li>
+                        <li><strong>Compare:</strong> Opens a second file for side-by-side comparison.</li>
+                    </ul>
+                </div>
+                <div class="help-section">
+                    <div class="help-title">Navigation & Selection</div>
+                    <ul class="help-list">
+                        <li><strong>Click:</strong> Select a single byte.</li>
+                        <li><strong>Shift + Click:</strong> Select a range of bytes.</li>
+                        <li><strong>Arrow Keys:</strong> Move the cursor/selection.</li>
+                        <li><strong>Go to Offset:</strong> Jump to a specific address using a hexadecimal value.</li>
+                    </ul>
+                </div>
+                <div class="help-section">
+                    <div class="help-title">Editing & Clipboard</div>
+                    <ul class="help-list">
+                        <li><strong>Hex Pane:</strong> Supports input of 0-9, A-F. When pasting, the editor only accepts valid hexadecimal strings (spaces are ignored). Copied data is placed on the clipboard as a hex string.</li>
+                        <li><strong>Text Pane:</strong> Supports standard character input. Pasting text converts characters to bytes using the current encoding. Copied data is placed on the clipboard as text.</li>
+                        <li><strong>Context Sensitive:</strong> Cut, Copy, and Paste operations adapt based on whether the Hex or Text pane is active.</li>
+                        <li><strong>Undo/Redo:</strong> Fully supported history stack.</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" onclick="closeHelpDialog()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- License Dialog -->
+    <div class="modal" id="licenseDialog">
+        <div class="modal-content">
+            <div class="modal-header">📜 License</div>
+            <div class="modal-body" style="white-space: pre-wrap; line-height: 1.6; font-size: 14px; max-height: 60vh; overflow-y: auto;">Copyright © 2026 Thaer Razeq.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the “Software”), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.</div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" onclick="closeLicenseDialog()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- About Dialog -->
+    <div class="modal" id="aboutDialog">
+        <div class="modal-content about-container">
+            <div class="about-bg-glow"></div>
+            <div class="about-bg-glow-2"></div>
+            
+            <div class="about-animation-container">
+                <img class="about-logo-img" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48cGF0aCBkPSJNNTAgNUw5My4zIDMwVjc1TDUwIDEwMEw2LjcgNzVWMzBaIiBmaWxsPSIjMjE5NmYzIiBzdHJva2U9IiMxOTc2ZDIiIHN0cm9rZS13aWR0aD0iMiIvPjx0ZXh0IHg9IjUwIiB5PSI2MyIgZm9udC1mYW1pbHk9Im1vbm9zcGFjZSIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9ImJvbGQiIGZpbGw9IndoaXRlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj4weDwvdGV4dD48L3N2Zz4=" alt="Hex Editor Pro">
+                <div class="about-shadow"></div>
+            </div>
+
+            <div class="about-title">Hex Editor Pro</div>
+            <div class="about-version">Version 1.0.0</div>
+            <div class="about-desc">
+                An advanced, high-performance PWA Hex Editor featuring piece-table buffer management and side-by-side comparison.
+            </div>
+            
+            <div class="about-card">
+                <div class="about-row">
+                    <span class="about-label">Developer</span>
+                    <span class="about-value">Thaer Razeq</span>
+                </div>
+                <div class="about-row">
+                    <span class="about-label">License</span>
+                    <span class="about-value">MIT</span>
+                </div>
+                <div class="about-row">
+                    <span class="about-label">Released</span>
+                    <span class="about-value">2026</span>
+                </div>
+            </div>
+
+            <div class="about-social">
+                <a href="mailto:Thaer.Razeq@outlook.com" class="social-link" title="Email">📧</a>
+                <a href="https://github.com/RebelliousX/Hex-Editor-Pro" target="_blank" class="social-link" title="GitHub">🐙</a>
+                <a href="https://www.paypal.com/donate/?business=Thaer.Razeq@outlook.com&item_name=Hex+Editor+Support" target="_blank" class="social-link" title="Thank you for supporting me! 👍🏻">💸</a>
+            </div>
+            
+            <div style="margin-top: 30px;">
+                <button class="btn btn-primary" onclick="closeAboutDialog()" style="width: 100%; max-width: 200px;">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- CONSTANTS ---
+        const MAX_SCROLL_HEIGHT = 15000000;
+        const CACHE_BLOCK_SIZE = 64 * 1024; // 64KB Cache Blocks
+        const MAX_COPY_SIZE = 1024 * 1024; // 1MB Max Clipboard Copy
+
+        // --- PIECE TABLE CLASS ---
+        class PieceTable {
+            constructor(file) {
+                this.originalFile = file;
+                this.originalSize = file ? file.size : 0;
+                // Pieces: { source: 'file' | 'buffer', length: number, fileOffset?: number, buffer?: Uint8Array }
+                this.pieces = [];
+                if (file) this.pieces.push({ source: 'file', length: file.size, fileOffset: 0 });
+                this.size = this.originalSize;
+                
+                // Cache for file reads. Key: blockIndex
+                this.fileCache = new Map();
+            }
+
+            findPiece(offset) {
+                let current = 0;
+                for (let i = 0; i < this.pieces.length; i++) {
+                    const p = this.pieces[i];
+                    if (offset >= current && offset < current + p.length) {
+                        return { index: i, offsetInPiece: offset - current, pieceStart: current };
+                    }
+                    current += p.length;
+                }
+                return null;
+            }
+
+            insert(offset, data) {
+                if(data.length === 0) return;
+                
+                // If appending at end
+                if (offset === this.size) {
+                    this.pieces.push({ source: 'buffer', length: data.length, buffer: data });
+                } else {
+                    const loc = this.findPiece(offset);
+                    if (!loc) return; 
+                    const p = this.pieces[loc.index];
+                    
+                    const piecesToAdd = [];
+                    // Left part
+                    if (loc.offsetInPiece > 0) {
+                        piecesToAdd.push({ ...p, length: loc.offsetInPiece });
+                    }
+                    // Insert
+                    piecesToAdd.push({ source: 'buffer', length: data.length, buffer: data });
+                    // Right part
+                    if (loc.offsetInPiece < p.length) {
+                        const rightLen = p.length - loc.offsetInPiece;
+                        if (p.source === 'file') {
+                            piecesToAdd.push({ source: 'file', length: rightLen, fileOffset: p.fileOffset + loc.offsetInPiece });
+                        } else {
+                            piecesToAdd.push({ source: 'buffer', length: rightLen, buffer: p.buffer.slice(loc.offsetInPiece) });
+                        }
+                    }
+                    this.pieces.splice(loc.index, 1, ...piecesToAdd);
+                }
+                this.size += data.length;
+            }
+
+            delete(offset, length) {
+                if (length <= 0) return;
+                let remaining = length;
+                
+                // Since we are deleting, the structure shifts. 
+                // We keep finding the piece at 'offset' until we have deleted 'length' bytes.
+                while (remaining > 0) {
+                    const loc = this.findPiece(offset);
+                    if (!loc) break;
+                    const p = this.pieces[loc.index];
+                    
+                    // How many bytes can we delete from this piece starting at loc.offsetInPiece?
+                    const availableInPiece = p.length - loc.offsetInPiece;
+                    const deleteFromPiece = Math.min(remaining, availableInPiece);
+                    
+                    const newPieces = [];
+                    // Left part
+                    if (loc.offsetInPiece > 0) {
+                        newPieces.push({ ...p, length: loc.offsetInPiece });
+                    }
+                    // Right part
+                    if (loc.offsetInPiece + deleteFromPiece < p.length) {
+                        const rightStart = loc.offsetInPiece + deleteFromPiece;
+                        const rightLen = p.length - rightStart;
+                        if (p.source === 'file') {
+                            newPieces.push({ source: 'file', length: rightLen, fileOffset: p.fileOffset + rightStart });
+                        } else {
+                            newPieces.push({ source: 'buffer', length: rightLen, buffer: p.buffer.slice(rightStart) });
+                        }
+                    }
+                    
+                    this.pieces.splice(loc.index, 1, ...newPieces);
+                    remaining -= deleteFromPiece;
+                }
+                this.size -= length;
+            }
+
+            async ensureRange(offset, length) {
+                if (!this.originalFile) return;
+                const end = offset + length;
+                let current = 0;
+                const promises = [];
+                
+                for (const p of this.pieces) {
+                    if (current + p.length > offset && current < end) {
+                        if (p.source === 'file') {
+                            const pStart = Math.max(current, offset);
+                            const pEnd = Math.min(current + p.length, end);
+                            
+                            const fileStart = p.fileOffset + (pStart - current);
+                            const fileEnd = p.fileOffset + (pEnd - current);
+                            
+                            const startBlock = Math.floor(fileStart / CACHE_BLOCK_SIZE);
+                            const endBlock = Math.floor((fileEnd - 1) / CACHE_BLOCK_SIZE);
+                            
+                            for (let b = startBlock; b <= endBlock; b++) {
+                                if (!this.fileCache.has(b)) {
+                                    const bStart = b * CACHE_BLOCK_SIZE;
+                                    const bEnd = Math.min(this.originalSize, bStart + CACHE_BLOCK_SIZE);
+                                    promises.push(
+                                        this.originalFile.slice(bStart, bEnd).arrayBuffer()
+                                            .then(buf => this.fileCache.set(b, new Uint8Array(buf)))
+                                            .catch(e => console.error("Load error", e))
+                                    );
+                                }
+                            }
+                        }
+                    }
+                    current += p.length;
+                    if (current >= end) break;
+                }
+                await Promise.all(promises);
+            }
+
+            read(offset, length) {
+                const result = new Uint8Array(length);
+                let current = 0;
+                
+                for (const p of this.pieces) {
+                    if (current + p.length > offset && current < offset + length) {
+                        const pStart = Math.max(current, offset);
+                        const pEnd = Math.min(current + p.length, offset + length);
+                        const len = pEnd - pStart;
+                        const destIdx = pStart - offset;
+                        
+                        if (p.source === 'buffer') {
+                            const srcStart = pStart - current;
+                            result.set(p.buffer.subarray(srcStart, srcStart + len), destIdx);
+                        } else {
+                            const fileStart = p.fileOffset + (pStart - current);
+                            let bytesCopied = 0;
+                            while (bytesCopied < len) {
+                                const absPos = fileStart + bytesCopied;
+                                const block = Math.floor(absPos / CACHE_BLOCK_SIZE);
+                                const blockOffset = absPos % CACHE_BLOCK_SIZE;
+                                const blockData = this.fileCache.get(block);
+                                if (blockData) {
+                                    const toCopy = Math.min(len - bytesCopied, blockData.length - blockOffset);
+                                    result.set(blockData.subarray(blockOffset, blockOffset + toCopy), destIdx + bytesCopied);
+                                    bytesCopied += toCopy;
+                                } else {
+                                    bytesCopied += len; // Fallback
+                                }
+                            }
+                        }
+                    }
+                    current += p.length;
+                    if (current >= offset + length) break;
+                }
+                return result;
+            }
+        }
+        
+        // --- DECODING TABLES ---
+        const CP437_GLYPHS = [
+            '\uFFFD','\u263A','\u263B','\u2665','\u2666','\u2663','\u2660','\u2022','\u25D8','\u25CB','\u25D9','\u2642','\u2640','\u266A','\u266B','\u263C',
+            '\u25BA','\u25C4','\u2195','\u203C','\u00B6','\u00A7','\u25AC','\u21A8','\u2191','\u2193','\u2192','\u2190','\u221F','\u2194','\u25B2','\u25BC'
+        ];
+        const CP437_HIGH = "ÇüéâäàåçêëèïîìÄÅÉæÆôöòûùÿÖÜ¢£¥₧ƒáíóúñÑªº¿⌐¬½¼¡«»░▒▓│┤╡╢╖╕╣║╗╝╜╛┐└┴┬├─┼╞╟╚╔╩╦╠═╬╧╨╤╥╙╘╒╓╫╪┘┌█▄▌▐▀αßΓπΣσµτΦΘΩδ∞φε∩≡±≥≤⌠⌡÷≈°∙·√ⁿ²■";
+        
+        const EBCDIC_CP037 = [
+            '\uFFFD','\uFFFD','\uFFFD','\uFFFD','\uFFFD','\u0009','\uFFFD','\u007F','\uFFFD','\uFFFD','\uFFFD','\uFFFD','\uFFFD','\uFFFD','\uFFFD','\uFFFD',
+            '\uFFFD','\uFFFD','\uFFFD','\uFFFD','\uFFFD','\uFFFD','\uFFFD','\uFFFD','\uFFFD','\uFFFD','\uFFFD','\uFFFD','\uFFFD','\uFFFD','\uFFFD','\uFFFD',
+            '\uFFFD','\uFFFD','\uFFFD','\uFFFD','\uFFFD','\u000A','\uFFFD','\uFFFD','\uFFFD','\uFFFD','\uFFFD','\uFFFD','\uFFFD','\uFFFD','\uFFFD','\uFFFD',
+            '\uFFFD','\uFFFD','\uFFFD','\uFFFD','\uFFFD','\uFFFD','\uFFFD','\uFFFD','\uFFFD','\uFFFD','\uFFFD','\uFFFD','\uFFFD','\uFFFD','\uFFFD','\uFFFD',
+            ' ','\u00A0','\u00E2','\u00E4','\u00E0','\u00E1','\u00E3','\u00E5','\u00E7','\u00F1','\u00A2','.','<','(','+','|',
+            '&','\u00E9','\u00EA','\u00EB','\u00E8','\u00ED','\u00EE','\u00EF','\u00EC','\u00DF','!','$','*',')',';','\u00AC',
+            '-','/','\u00C2','\u00C4','\u00C0','\u00C1','\u00C3','\u00C5','\u00C7','\u00D1','\u00A6',',','%','_','>','?',
+            '\u00F8','\u00C9','\u00CA','\u00CB','\u00C8','\u00CD','\u00CE','\u00CF','\u00CC','`',':','#','@','\'','=','"',
+            '\u00D8','a','b','c','d','e','f','g','h','i','\u00AB','\u00BB','\u00F0','\u00FD','\u00FE','\u00B1',
+            '\u00B0','j','k','l','m','n','o','p','q','r','\u00AA','\u00BA','\u00E6','\u00B8','\u00C6','\u00A4',
+            '\u00B5','~','s','t','u','v','w','x','y','z','\u00A1','\u00BF','\u00D0','\u005B','\u00DE','\u00AE',
+            '\u00AC','\u00A3','\u00A5','\u00B7','\u00A9','\u00A7','\u00B6','\u00BC','\u00BD','\u00BE','\u005D','|','-','\u00A8','\u00B4','\u00D7',
+            '{','A','B','C','D','E','F','G','H','I','\u00AD','\u00F4','\u00F6','\u00F2','\u00F3','\u00F5',
+            '}','J','K','L','M','N','O','P','Q','R','\u00B9','\u00FB','\u00FC','\u00F9','\u00FA','\u00FF',
+            '\\','\u00F7','S','T','U','V','W','X','Y','Z','\u00B2','\u00D4','\u00D6','\u00D2','\u00D3','\u00D5',
+            '0','1','2','3','4','5','6','7','8','9','\u00B3','\u00DB','\u00DC','\u00D9','\u00DA','\uFFFD'
+        ];
+
+        let decodingTable = new Array(256);
+
+        function generateDecodingTable(encoding) {
+            if (encoding === 'cp437') {
+                for (let i = 0; i < 256; i++) {
+                    if (i < 32) decodingTable[i] = CP437_GLYPHS[i];
+                    else if (i === 127) decodingTable[i] = '\u2302';
+                    else if (i >= 128) decodingTable[i] = CP437_HIGH[i - 128];
+                    else decodingTable[i] = String.fromCharCode(i);
+                }
+            } else if (encoding === 'ebcdic') {
+                for (let i = 0; i < 256; i++) {
+                    decodingTable[i] = EBCDIC_CP037[i];
+                }
+            } else {
+                // Windows-1252 or Macintosh
+                const decoder = new TextDecoder(encoding);
+                const buffer = new Uint8Array(1);
+                for (let i = 0; i < 256; i++) {
+                    // Specific override for control characters to display as dot or replacement char
+                    // null (0) or impossible to copy -> 
+                    if (i === 0) {
+                        decodingTable[i] = '\uFFFD';
+                    } else if (i < 32 || i === 127) {
+                        // Standard controls usually dot, but for strict "impossible to copy" request we might use 
+                        // Most hex editors use dot for non-printables.
+                        // But user specifically asked for square inside question mark for null OR chars impossible to be copied.
+                        // 1-31 are control chars.
+                        decodingTable[i] = '\uFFFD';
+                    } else {
+                        buffer[0] = i;
+                        const char = decoder.decode(buffer);
+                        // If it decodes to replacement char, keep it.
+                        decodingTable[i] = char;
+                        
+                        // Check for windows-1252 undefined spots (81, 8D, 8F, 90, 9D) which decode to  automatically usually or nothing
+                        if (encoding === 'windows-1252') {
+                           if ([0x81, 0x8D, 0x8F, 0x90, 0x9D].includes(i)) decodingTable[i] = '\uFFFD'; 
+                        }
+                    }
+                }
+            }
+        }
+
+        // --- STATE ---
+        let file1State = { doc: new PieceTable(null), loading: false, pendingOffset: null, hasPending: false, name: '', undoStack: [], redoStack: [], scrollOverride: null, originalSize: 0 };
+        let file2State = { doc: new PieceTable(null), loading: false, pendingOffset: null, hasPending: false, name: '', undoStack: [], redoStack: [], scrollOverride: null, originalSize: 0 };
+        
+        let compareMode = false;
+        let isDarkMode = false;
+        let fontSize = 20; // Default 20
+        let rowHeight = 20; 
+        let bytesPerRow = 16;
+        let activeFileNum = 1;
+        let activeMenu = null;
+        let activePane = 'hex'; // 'hex' or 'ascii'
+        let editNibble = 0; // 0=High, 1=Low
+        let textDecoding = 'windows-1252';
+        
+        let fileToSaveNum = 1;
+
+        // Default Color Settings
+        const DEFAULT_SETTINGS = {
+            hoverColorStart: '#4CAF50', hoverAlphaStart: 51, 
+            hoverColorEnd: '#4CAF50', hoverAlphaEnd: 51,
+            hoverStrongColor: '#4CAF50', hoverStrongAlpha: 128, 
+            selectionColorStart: '#2196F3', selectionAlphaStart: 255, 
+            selectionColorEnd: '#2196F3', selectionAlphaEnd: 0, 
+            selectionInactiveColorStart: '#FF9800', selectionInactiveAlphaStart: 255, // Updated default
+            selectionInactiveColorEnd: '#FF9800', selectionInactiveAlphaEnd: 0, // Updated default
+            diffColorStart: '#F44336', diffAlphaStart: 51, 
+            diffColorEnd: '#F44336', diffAlphaEnd: 13, 
+            diffStrongColor: '#F44336', diffStrongAlpha: 128 
+        };
+        let colorSettings = { ...DEFAULT_SETTINGS };
+
+        let globalUndoStack = [];
+        let globalRedoStack = [];
+
+        let selectionRangeStart = null;
+        let selectionRangeEnd = null;
+        let anchorOffset = null;
+
+        // Search
+        let findIsHex = false;
+        let scrollTimeout = null;
+        let scrollLockSource = null;
+        let isScrolling = false;
+        let scrollEndTimeout = null;
+        let suppressScrollHandler = false;
+        
+        // --- INITIALIZATION ---
+        document.addEventListener('DOMContentLoaded', () => {
+            // Register Service Worker
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('sw.js')
+                    .then(reg => console.log('SW registered'))
+                    .catch(err => console.log('SW error', err));
+            }
+
+            loadSettings();
+            setupMenuHandlers();
+            buildFileMenu();
+            wireStaticMenuActions();
+            syncHeaderHeights();
+            window.addEventListener('resize', () => {
+                syncHeaderHeights();
+                document.querySelectorAll('.modal.visible').forEach(m => fitDialog(m.id));
+            });
+            updateMenuStates();
+
+            // Prevent default right-click context menu globally
+            document.addEventListener('contextmenu', (e) => e.preventDefault());
+            
+            const linkInput = (id, targetId) => {
+                const el = document.getElementById(id);
+                if(el) el.addEventListener('input', () => document.getElementById(targetId).value = el.value);
+            };
+            linkInput('fontSizeSlider', 'fontSizeSpin');
+            linkInput('fontSizeSpin', 'fontSizeSlider');
+            linkInput('rowHeightSlider', 'rowHeightSpin');
+            linkInput('rowHeightSpin', 'rowHeightSlider');
+            
+             const sliders = [
+                { slider: 'hoverAlphaStart_slider', value: 'hoverAlphaStart_value' },
+                { slider: 'hoverAlphaEnd_slider', value: 'hoverAlphaEnd_value' },
+                { slider: 'selectionAlphaStart_slider', value: 'selectionAlphaStart_value' },
+                { slider: 'selectionAlphaEnd_slider', value: 'selectionAlphaEnd_value' },
+                { slider: 'selectionInactiveAlphaStart_slider', value: 'selectionInactiveAlphaStart_value' },
+                { slider: 'selectionInactiveAlphaEnd_slider', value: 'selectionInactiveAlphaEnd_value' },
+                { slider: 'diffAlphaStart_slider', value: 'diffAlphaStart_value' },
+                { slider: 'diffAlphaEnd_slider', value: 'diffAlphaEnd_value' },
+                { slider: 'hoverStrongAlpha_slider', value: 'hoverStrongAlpha_value' },
+                { slider: 'diffStrongAlpha_slider', value: 'diffStrongAlpha_value' }
+            ];
+            sliders.forEach(item => {
+                const sliderEl = document.getElementById(item.slider);
+                const valueEl = document.getElementById(item.value);
+                if (sliderEl && valueEl) {
+                    sliderEl.addEventListener('input', () => valueEl.textContent = sliderEl.value);
+                }
+            });
+
+            // Find Dialog Events
+            document.querySelectorAll('input[name="findMode"]').forEach(r => {
+                r.addEventListener('change', toggleFindMode);
+            });
+            document.getElementById('findInput').addEventListener('input', handleFindInput);
+            document.getElementById('findInput').addEventListener('keydown', (e) => {
+                if(e.key === 'Enter') performFind();
+                if(e.key === 'Escape') closeFindDialog();
+            });
+
+            // Replace Dialog Events
+            document.querySelectorAll('input[name="replaceMode"]').forEach(r => {
+                r.addEventListener('change', toggleReplaceMode);
+            });
+            const replaceHexInputs = ['findInputReplace', 'replaceInput'];
+            replaceHexInputs.forEach(id => {
+                document.getElementById(id).addEventListener('input', handleReplaceInput);
+                document.getElementById(id).addEventListener('keydown', (e) => {
+                    if(e.key === 'Enter') performReplace(false);
+                    if(e.key === 'Escape') closeReplaceDialog();
+                });
+            });
+
+            // Goto Dialog Events
+            const gotoInput = document.getElementById('gotoInput');
+            gotoInput.addEventListener('keydown', (e) => {
+                const tooltip = document.getElementById('gotoErrorTooltip');
+                tooltip.classList.remove('visible'); // Hide initially
+                
+                if(e.key === 'Enter') { performGoto(); return; }
+                if(e.key === 'Escape') { closeGotoDialog(); return; }
+                if (['Tab', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(e.key)) return; 
+                if (e.ctrlKey || e.metaKey || e.altKey) return; 
+
+                e.preventDefault();
+
+                let current = gotoInput.value.replace(/^0x/, '');
+                if (current.length !== 10) current = '0000000000';
+
+                let next = current;
+                if (e.key === 'Backspace' || e.key === 'Delete') {
+                    next = '0' + current.slice(0, 9);
+                } else if (/^[0-9a-fA-F]$/.test(e.key)) {
+                    next = current.slice(1) + e.key.toUpperCase();
+                } else {
+                    return; 
+                }
+
+                // Check Valid Range
+                const val = parseInt(next, 16);
+                const state = activeFileNum === 1 ? file1State : file2State;
+                const maxOff = Math.max(0, state.doc.size - 1);
+
+                if (val > maxOff) {
+                    // Show Tooltip
+                    const rect = gotoInput.getBoundingClientRect();
+                    tooltip.style.left = rect.left + 'px';
+                    tooltip.style.top = (rect.bottom + 8) + 'px';
+                    tooltip.textContent = `Max: 0x${maxOff.toString(16).toUpperCase().padStart(10,'0')}`;
+                    tooltip.classList.add('visible');
+                    
+                    if (gotoInput.tooltipTimeout) clearTimeout(gotoInput.tooltipTimeout);
+                    gotoInput.tooltipTimeout = setTimeout(() => tooltip.classList.remove('visible'), 2000);
+                    return; 
+                }
+                
+                gotoInput.value = '0x' + next;
+            });
+            
+            // Add paste handler
+            gotoInput.addEventListener('paste', (e) => {
+                e.preventDefault();
+                const text = (e.clipboardData || window.clipboardData).getData('text');
+                if (!text) return;
+                
+                const hex = text.replace(/[^0-9a-fA-F]/g, '').toUpperCase();
+                let current = gotoInput.value.replace(/^0x/, '');
+                if (current.length !== 10) current = '0000000000';
+                
+                let combined = current + hex;
+                if (combined.length > 10) combined = combined.slice(combined.length - 10);
+                combined = combined.padStart(10, '0');
+                
+                // Validate pasted result
+                const val = parseInt(combined, 16);
+                const state = activeFileNum === 1 ? file1State : file2State;
+                const maxOff = Math.max(0, state.doc.size - 1);
+                
+                if (val > maxOff) {
+                     // Show Tooltip for paste error
+                     const tooltip = document.getElementById('gotoErrorTooltip');
+                     const rect = gotoInput.getBoundingClientRect();
+                     tooltip.style.left = rect.left + 'px';
+                     tooltip.style.top = (rect.bottom + 8) + 'px';
+                     tooltip.textContent = `Max: 0x${maxOff.toString(16).toUpperCase().padStart(10,'0')}`;
+                     tooltip.classList.add('visible');
+                     if (gotoInput.tooltipTimeout) clearTimeout(gotoInput.tooltipTimeout);
+                     gotoInput.tooltipTimeout = setTimeout(() => tooltip.classList.remove('visible'), 2000);
+                     return;
+                }
+                
+                gotoInput.value = '0x' + combined;
+            });
+            
+            const saveInput = document.getElementById('saveFilenameInput');
+            saveInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') confirmSaveFile();
+                if (e.key === 'Escape') closeSaveFileDialog();
+            });
+
+            document.addEventListener('keydown', handleGlobalKeydown);
+            document.addEventListener('click', () => { hideContextMenu(); closeAllMenus(); });
+            
+            // Context Menu Actions
+            document.getElementById('ctxCopySelection').addEventListener('click', (e) => { e.stopPropagation(); hideContextMenu(); performCopyHex(); });
+            document.getElementById('ctxCopySelectionAscii').addEventListener('click', (e) => { e.stopPropagation(); hideContextMenu(); performCopyAscii(); });
+            document.getElementById('ctxCopyOffset').addEventListener('click', (e) => { e.stopPropagation(); hideContextMenu(); copyOffset(); });
+            document.getElementById('ctxGoto').addEventListener('click', (e) => { e.stopPropagation(); hideContextMenu(); showGotoDialog(); });
+            document.getElementById('ctxCut').addEventListener('click', (e) => { e.stopPropagation(); hideContextMenu(); performCut(); });
+            document.getElementById('ctxDelete').addEventListener('click', (e) => { e.stopPropagation(); hideContextMenu(); performDelete(); });
+            document.getElementById('ctxPasteOverwrite').addEventListener('click', (e) => { e.stopPropagation(); hideContextMenu(); performPaste(true); });
+            document.getElementById('ctxPasteInsert').addEventListener('click', (e) => { e.stopPropagation(); hideContextMenu(); performPaste(false); });
+        });
+
+        // --- HELPER FUNCTIONS ---
+        function updateStatus(msg) { document.getElementById('statusMessage').textContent = msg; }
+        
+        function formatFileSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1048576) return (bytes / 1024).toFixed(2) + ' KB';
+            if (bytes < 1073741824) return (bytes / 1048576).toFixed(2) + ' MB';
+            return (bytes / 1073741824).toFixed(2) + ' GB';
+        }
+
+        function fitDialog(id) {
+            const modal = document.getElementById(id);
+            if (!modal || !modal.classList.contains('visible')) return;
+            const content = modal.querySelector('.modal-content');
+            if (!content) return;
+            
+            content.style.transform = 'none';
+            const rect = content.getBoundingClientRect();
+            const vw = window.innerWidth;
+            const vh = window.innerHeight;
+            const margin = 20;
+            const availW = vw - margin;
+            const availH = vh - margin;
+            
+            let scale = 1;
+            if (rect.width > availW || rect.height > availH) {
+                scale = Math.min(availW / rect.width, availH / rect.height);
+            }
+            if (scale < 1) content.style.transform = `scale(${scale})`;
+        }
+        
+        function updateFileIndicators(fileNum) {
+            const state = fileNum === 1 ? file1State : file2State;
+            const container = document.getElementById(`file${fileNum}Tags`);
+            if (!container) return;
+            container.innerHTML = '';
+            
+            // If Undo stack has items, we assume it's modified from load state
+            const isModified = state.undoStack.length > 0;
+            const isSizeChanged = state.doc.size !== state.originalSize;
+            
+            if (isModified) {
+                const mod = document.createElement('span');
+                mod.className = 'status-tag';
+                mod.textContent = 'Modified';
+                container.appendChild(mod);
+            }
+            
+            if (isSizeChanged) {
+                const sz = document.createElement('span');
+                sz.className = 'status-tag';
+                sz.textContent = 'Size Changed';
+                container.appendChild(sz);
+            }
+        }
+
+        function updateMenuStates() {
+            const state = activeFileNum === 1 ? file1State : file2State;
+            const hasSelection = selectionRangeStart !== null;
+            // Allow paste if there is a selection OR the file is empty (size 0)
+            const canPaste = hasSelection || state.doc.size === 0;
+
+            const canUndo = globalUndoStack.length > 0;
+            const canRedo = globalRedoStack.length > 0;
+
+            const setDisabled = (selector, disabled) => {
+                document.querySelectorAll(selector).forEach(el => {
+                    if (disabled) el.classList.add('disabled');
+                    else el.classList.remove('disabled');
+                });
+            };
+
+            // Edit Menu
+            setDisabled('[data-action="undo"]', !canUndo);
+            setDisabled('[data-action="redo"]', !canRedo);
+            
+            const selActions = ['cut', 'copyHex', 'copyAscii', 'copyOffset', 'delete'];
+            selActions.forEach(act => setDisabled(`[data-action="${act}"]`, !hasSelection));
+            
+            // Paste Actions
+            const pasteActions = ['pasteOverwrite', 'pasteInsert'];
+            pasteActions.forEach(act => setDisabled(`[data-action="${act}"]`, !canPaste));
+            
+            // Context Menu
+            const ctxIds = ['ctxCopySelection', 'ctxCopySelectionAscii', 'ctxCut', 'ctxDelete', 'ctxCopyOffset'];
+            ctxIds.forEach(id => {
+                const el = document.getElementById(id);
+                if(el) {
+                    if(!hasSelection) el.classList.add('disabled');
+                    else el.classList.remove('disabled');
+                }
+            });
+
+            // Context Menu Paste
+            const ctxPasteIds = ['ctxPasteOverwrite', 'ctxPasteInsert'];
+            ctxPasteIds.forEach(id => {
+                const el = document.getElementById(id);
+                if(el) {
+                    if(!canPaste) el.classList.add('disabled');
+                    else el.classList.remove('disabled');
+                }
+            });
+        }
+        
+        function syncHeaderHeights() {
+            const h1 = document.getElementById('fileHeader1');
+            const h2 = document.getElementById('fileHeader2');
+            h1.style.minHeight = ''; h2.style.minHeight = '';
+            if(compareMode) {
+                const m = Math.max(h1.clientHeight, h2.clientHeight);
+                h1.style.minHeight = m + 'px'; h2.style.minHeight = m + 'px';
+            }
+        }
+        
+        function updateCursorInfo() {
+            const off = selectionRangeStart !== null ? selectionRangeStart : 0;
+            document.getElementById('cursorPosition').textContent = `Offset: 0x${off.toString(16).padStart(10,'0')} (${off})`;
+        }
+
+        function updateSelectionStatus() {
+            if (selectionRangeStart === null || selectionRangeEnd === null) return;
+            const start = Math.min(selectionRangeStart, selectionRangeEnd);
+            const end = Math.max(selectionRangeStart, selectionRangeEnd);
+            const count = end - start + 1;
+            const offsetHex = `0x${start.toString(16).padStart(10, '0').toUpperCase()}`;
+            
+            let panelInfo = '';
+            if (compareMode) {
+                panelInfo = activeFileNum === 1 ? ' (Left Panel)' : ' (Right Panel)';
+            }
+            
+            if (count === 1) {
+                updateStatus(`Selected 1 byte at offset: ${offsetHex}${panelInfo}`);
+            } else {
+                updateStatus(`Selected ${count} bytes starting from offset: ${offsetHex}${panelInfo}`);
+            }
+        }
+        
+        function copyOffset() {
+            if (selectionRangeStart === null) return;
+            const off = selectionRangeStart;
+            const txt = `0x${off.toString(16).padStart(10, '0')}`;
+            navigator.clipboard.writeText(txt).then(() => updateStatus(`Copied ${txt}`)).catch(()=>updateStatus('Copy failed'));
+        }
+
+        function refreshViews() {
+            renderView(1, getScrollByte(1));
+            if(compareMode) renderView(2, getScrollByte(2));
+        }
+
+        function getScrollByte(fileNum) {
+            const container = document.getElementById(`hexContainer${fileNum}`);
+            const state = fileNum === 1 ? file1State : file2State;
+            const totalRowHeight = fontSize + rowHeight;
+            
+            if (!state.doc || (state.doc.size === 0 && !state.doc.originalFile)) return 0;
+            
+            // Check for override (precise navigation)
+            if (state.scrollOverride) {
+                // If the user hasn't scrolled away significantly (tolerance of 10px)
+                if (Math.abs(container.scrollTop - state.scrollOverride.scrollTop) < 10) {
+                    return state.scrollOverride.byte;
+                } else {
+                    state.scrollOverride = null;
+                }
+            }
+            
+            // In compare mode, logical size is max of both
+            let size = state.doc.size;
+            if (compareMode) size = Math.max(file1State.doc.size, file2State.doc.size);
+
+            const totalRows = Math.ceil(size / bytesPerRow);
+            const realHeight = totalRows * totalRowHeight;
+            const useVirtual = realHeight > totalRows * totalRowHeight; // virtual scroll threshold bugfix
+            const useVirtualFixed = realHeight > MAX_SCROLL_HEIGHT;
+
+            if (!useVirtualFixed) {
+                return Math.floor(container.scrollTop / totalRowHeight) * bytesPerRow;
+            }
+            
+            const scrollTop = container.scrollTop;
+            const clientHeight = container.clientHeight;
+            const scrollMax = container.scrollHeight - clientHeight;
+            
+            if (scrollMax <= 0) return 0;
+
+            const visibleRows = Math.floor(clientHeight / totalRowHeight);
+            const maxHiddenRows = Math.max(0, totalRows - visibleRows);
+            const pct = scrollTop / scrollMax;
+            const targetRow = Math.floor(pct * maxHiddenRows);
+
+            return targetRow * bytesPerRow;
+        }
+
+        // --- SETTINGS ---
+        function loadSettings() {
+            const s = JSON.parse(localStorage.getItem('hexEditorSettings') || '{}');
+            isDarkMode = !!s.isDarkMode;
+            fontSize = s.fontSize || 20; // Default 20
+            rowHeight = s.rowHeight || 20;
+            bytesPerRow = s.bytesPerRow || 16;
+            textDecoding = s.textDecoding || 'windows-1252';
+            
+            // Load Colors or Default
+            if (s.colorSettings) {
+                colorSettings = { ...DEFAULT_SETTINGS, ...s.colorSettings };
+            } else {
+                colorSettings = { ...DEFAULT_SETTINGS };
+            }
+
+            document.body.classList.toggle('dark-mode', isDarkMode);
+            generateDecodingTable(textDecoding);
+            applyCSSVars();
+        }
+
+        function saveSettings() {
+            const s = { isDarkMode, fontSize, rowHeight, bytesPerRow, textDecoding, colorSettings };
+            localStorage.setItem('hexEditorSettings', JSON.stringify(s));
+        }
+
+        function applyCSSVars() {
+            document.documentElement.style.setProperty('--font-size', `${fontSize}px`);
+            document.documentElement.style.setProperty('--row-height', `${fontSize + rowHeight}px`);
+            document.documentElement.style.setProperty('--bytes-per-row', bytesPerRow);
+
+            const hexToRgb = (hex) => {
+                if(!hex) return '0,0,0';
+                const r = parseInt(hex.substr(1,2), 16);
+                const g = parseInt(hex.substr(3,2), 16);
+                const b = parseInt(hex.substr(5,2), 16);
+                return `${r}, ${g}, ${b}`;
+            };
+            const alphaToFloat = (a) => (parseInt(a) / 255).toFixed(2);
+
+            // Apply colors
+            const setGrad = (varName, hexStart, aStart, hexEnd, aEnd, type = 'linear') => {
+                const c1 = `rgba(${hexToRgb(hexStart)}, ${alphaToFloat(aStart)})`;
+                const c2 = `rgba(${hexToRgb(hexEnd)}, ${alphaToFloat(aEnd)})`;
+                if (type === 'radial') {
+                    document.documentElement.style.setProperty(varName, `radial-gradient(circle, ${c1} 0%, ${c2} 100%)`);
+                } else {
+                    document.documentElement.style.setProperty(varName, `linear-gradient(90deg, ${c1} 0%, ${c2} 100%)`);
+                }
+            };
+
+            setGrad('--bg-hover', colorSettings.hoverColorStart, colorSettings.hoverAlphaStart, colorSettings.hoverColorEnd, colorSettings.hoverAlphaEnd);
+            setGrad('--bg-selection', colorSettings.selectionColorStart, colorSettings.selectionAlphaStart, colorSettings.selectionColorEnd, colorSettings.selectionAlphaEnd, 'radial');
+            setGrad('--bg-selection-inactive', colorSettings.selectionInactiveColorStart, colorSettings.selectionInactiveAlphaStart, colorSettings.selectionInactiveColorEnd, colorSettings.selectionInactiveAlphaEnd, 'radial');
+            setGrad('--bg-diff', colorSettings.diffColorStart, colorSettings.diffAlphaStart, colorSettings.diffColorEnd, colorSettings.diffAlphaEnd);
+            
+            document.documentElement.style.setProperty('--bg-hover-byte', `rgba(${hexToRgb(colorSettings.hoverStrongColor)}, ${alphaToFloat(colorSettings.hoverStrongAlpha)})`);
+            document.documentElement.style.setProperty('--bg-diff-strong', `rgba(${hexToRgb(colorSettings.diffStrongColor)}, ${alphaToFloat(colorSettings.diffStrongAlpha)})`);
+        }
+
+        function syncSettingsUI() {
+            document.getElementById('fontSizeSlider').value = fontSize;
+            document.getElementById('fontSizeSpin').value = fontSize;
+            document.getElementById('rowHeightSlider').value = rowHeight;
+            document.getElementById('rowHeightSpin').value = rowHeight;
+            document.getElementById('bytesPerRowSelect').value = bytesPerRow;
+            document.getElementById('textDecodingSelect').value = textDecoding;
+
+            const bind = (pickerId, sliderId, valueId, keyHex, keyAlpha) => {
+                const p = document.getElementById(pickerId);
+                const s = document.getElementById(sliderId);
+                const v = document.getElementById(valueId);
+                if(p) p.value = colorSettings[keyHex] || '#000000';
+                if(s) s.value = colorSettings[keyAlpha] || 0;
+                if(v) v.textContent = colorSettings[keyAlpha] || 0;
+            };
+
+            bind('hoverColorStart_picker', 'hoverAlphaStart_slider', 'hoverAlphaStart_value', 'hoverColorStart', 'hoverAlphaStart');
+            bind('hoverColorEnd_picker', 'hoverAlphaEnd_slider', 'hoverAlphaEnd_value', 'hoverColorEnd', 'hoverAlphaEnd');
+            bind('hoverStrongColor_picker', 'hoverStrongAlpha_slider', 'hoverStrongAlpha_value', 'hoverStrongColor', 'hoverStrongAlpha');
+            
+            bind('selectionColorStart_picker', 'selectionAlphaStart_slider', 'selectionAlphaStart_value', 'selectionColorStart', 'selectionAlphaStart');
+            bind('selectionColorEnd_picker', 'selectionAlphaEnd_slider', 'selectionAlphaEnd_value', 'selectionColorEnd', 'selectionAlphaEnd');
+            
+            bind('selectionInactiveColorStart_picker', 'selectionInactiveAlphaStart_slider', 'selectionInactiveAlphaStart_value', 'selectionInactiveColorStart', 'selectionInactiveAlphaStart');
+            bind('selectionInactiveColorEnd_picker', 'selectionInactiveAlphaEnd_slider', 'selectionInactiveAlphaEnd_value', 'selectionInactiveColorEnd', 'selectionInactiveAlphaEnd');
+            
+            bind('diffColorStart_picker', 'diffAlphaStart_slider', 'diffAlphaStart_value', 'diffColorStart', 'diffAlphaStart');
+            bind('diffColorEnd_picker', 'diffAlphaEnd_slider', 'diffAlphaEnd_value', 'diffColorEnd', 'diffAlphaEnd');
+            
+            // Fix: Corrected binding for Difference Strong Color
+            bind('diffStrongColor_picker', 'diffStrongAlpha_slider', 'diffStrongAlpha_value', 'diffStrongColor', 'diffStrongAlpha');
+        }
+
+        function restoreDefaults() {
+            isDarkMode = false; fontSize = 20; rowHeight = 20; bytesPerRow = 16;
+            textDecoding = 'windows-1252';
+            colorSettings = { ...DEFAULT_SETTINGS };
+            document.body.classList.remove('dark-mode');
+            syncSettingsUI();
+            generateDecodingTable(textDecoding);
+            applyCSSVars();
+            refreshViews();
+        }
+
+        function applySettings() {
+            fontSize = parseInt(document.getElementById('fontSizeSlider').value);
+            rowHeight = parseInt(document.getElementById('rowHeightSlider').value);
+            bytesPerRow = parseInt(document.getElementById('bytesPerRowSelect').value);
+            textDecoding = document.getElementById('textDecodingSelect').value;
+            generateDecodingTable(textDecoding);
+
+            const read = (pickerId, sliderId, keyHex, keyAlpha) => {
+                const p = document.getElementById(pickerId);
+                const s = document.getElementById(sliderId);
+                if(p) colorSettings[keyHex] = p.value;
+                if(s) colorSettings[keyAlpha] = parseInt(s.value);
+            };
+
+            read('hoverColorStart_picker', 'hoverAlphaStart_slider', 'hoverColorStart', 'hoverAlphaStart');
+            read('hoverColorEnd_picker', 'hoverAlphaEnd_slider', 'hoverColorEnd', 'hoverAlphaEnd');
+            read('hoverStrongColor_picker', 'hoverStrongAlpha_slider', 'hoverStrongColor', 'hoverStrongAlpha');
+            
+            read('selectionColorStart_picker', 'selectionAlphaStart_slider', 'selectionColorStart', 'selectionAlphaStart');
+            read('selectionColorEnd_picker', 'selectionAlphaEnd_slider', 'selectionColorEnd', 'selectionAlphaEnd');
+            
+            read('selectionInactiveColorStart_picker', 'selectionInactiveAlphaStart_slider', 'selectionInactiveColorStart', 'selectionInactiveAlphaStart');
+            read('selectionInactiveColorEnd_picker', 'selectionInactiveAlphaEnd_slider', 'selectionInactiveColorEnd', 'selectionInactiveAlphaEnd');
+            
+            read('diffColorStart_picker', 'diffAlphaStart_slider', 'diffColorStart', 'diffAlphaStart');
+            read('diffColorEnd_picker', 'diffAlphaEnd_slider', 'diffColorEnd', 'diffAlphaEnd');
+            
+            // Fix: Removed extra argument
+            read('diffStrongColor_picker', 'diffStrongAlpha_slider', 'diffStrongColor', 'diffStrongAlpha');
+
+            applyCSSVars();
+            closeSettingsDialog();
+            refreshViews();
+            initVirtualScroll(1);
+            if(compareMode) initVirtualScroll(2);
+            saveSettings();
+        }
+
+        // --- DIALOGS ---
+        function showFindDialog() { 
+            // Don't open if no file
+            if (!file1State.doc.originalFile && file1State.doc.size === 0) return;
+            
+            document.getElementById('findDialog').classList.add('visible'); 
+            fitDialog('findDialog');
+            document.getElementById('findInput').focus(); 
+            
+            // Handle Scope UI
+            const scopeGroup = document.getElementById('findScopeGroup');
+            if (compareMode) {
+                scopeGroup.style.display = 'block';
+                // Default to Both if no selection
+                if (!document.querySelector('input[name="findScope"]:checked')) {
+                    document.getElementById('findScopeBoth').checked = true;
+                }
+            } else {
+                scopeGroup.style.display = 'none';
+                document.getElementById('findScopeLeft').checked = true;
+            }
+
+            toggleFindMode();
+        }
+        function closeFindDialog() { document.getElementById('findDialog').classList.remove('visible'); }
+
+        function showReplaceDialog() {
+             if (!file1State.doc.originalFile && file1State.doc.size === 0) return;
+             
+             document.getElementById('replaceDialog').classList.add('visible');
+             fitDialog('replaceDialog');
+             document.getElementById('findInputReplace').focus();
+             
+             // Handle Scope UI
+             const scopeGroup = document.getElementById('replaceScopeGroup');
+             if (compareMode) {
+                 scopeGroup.style.display = 'block';
+                 if (!document.querySelector('input[name="replaceScope"]:checked')) {
+                    document.getElementById('replaceScopeBoth').checked = true;
+                }
+             } else {
+                 scopeGroup.style.display = 'none';
+                 document.getElementById('replaceScopeLeft').checked = true;
+             }
+             
+             toggleReplaceMode();
+        }
+        function closeReplaceDialog() { document.getElementById('replaceDialog').classList.remove('visible'); }
+        
+        function showGotoDialog() { 
+            const state = activeFileNum === 1 ? file1State : file2State;
+            if (!state.doc.originalFile && state.doc.size === 0) {
+                updateStatus('No file loaded');
+                return;
+            }
+            document.getElementById('gotoDialog').classList.add('visible'); 
+            fitDialog('gotoDialog');
+            document.getElementById('gotoErrorTooltip').classList.remove('visible');
+            
+            // Panel Info
+            const panelEl = document.getElementById('gotoPanelInfo');
+            if (compareMode) {
+                panelEl.textContent = activeFileNum === 1 ? "Active Panel: Left" : "Active Panel: Right";
+                panelEl.classList.remove('hidden');
+            } else {
+                panelEl.classList.add('hidden');
+            }
+
+            // File Info
+            const fileEl = document.getElementById('gotoFileInfo');
+            fileEl.textContent = state.name || 'Untitled';
+            fileEl.title = state.name || 'Untitled';
+
+            // Range Info
+            let size = state.doc.size;
+            const maxOff = Math.max(0, size - 1);
+            
+            const fmt = (n) => {
+                if (n === 0) return '0x00';
+                let s = n.toString(16).toUpperCase();
+                if (s.length % 2 !== 0) s = '0' + s;
+                return '0x' + s;
+            };
+
+            document.getElementById('gotoRangeInfo').textContent = `Range: ${fmt(0)} - ${fmt(maxOff)}`;
+            
+            const input = document.getElementById('gotoInput');
+            input.value = '0x0000000000'; 
+            input.focus(); 
+            input.select();
+        }
+        function closeGotoDialog() { document.getElementById('gotoDialog').classList.remove('visible'); document.getElementById('gotoErrorTooltip').classList.remove('visible'); }
+        
+        function showSettingsDialog() { 
+            syncSettingsUI();
+            document.getElementById('settingsDialog').classList.add('visible'); 
+            fitDialog('settingsDialog');
+        }
+        function closeSettingsDialog() { document.getElementById('settingsDialog').classList.remove('visible'); }
+
+        function showHelpDialog() {
+            document.getElementById('helpDialog').classList.add('visible');
+            fitDialog('helpDialog');
+        }
+        function closeHelpDialog() {
+            document.getElementById('helpDialog').classList.remove('visible');
+        }
+        function showLicenseDialog() {
+            document.getElementById('licenseDialog').classList.add('visible');
+            fitDialog('licenseDialog');
+        }
+        function closeLicenseDialog() {
+            document.getElementById('licenseDialog').classList.remove('visible');
+        }
+        function showAboutDialog() {
+            document.getElementById('aboutDialog').classList.add('visible');
+            fitDialog('aboutDialog');
+        }
+        function closeAboutDialog() {
+            document.getElementById('aboutDialog').classList.remove('visible');
+        }
+
+        function showAlertDialog(title, message) {
+            document.getElementById('alertTitle').textContent = title;
+            document.getElementById('alertMessage').textContent = message;
+            document.getElementById('alertDialog').classList.add('visible');
+            fitDialog('alertDialog');
+        }
+        function closeAlertDialog() {
+            document.getElementById('alertDialog').classList.remove('visible');
+        }
+        
+        function promptSaveFile(num) {
+            const state = num === 1 ? file1State : file2State;
+            if (!state.doc.originalFile && state.doc.size === 0) return;
+            
+            fileToSaveNum = num;
+            const input = document.getElementById('saveFilenameInput');
+            input.value = state.name || 'untitled.bin';
+            
+            document.getElementById('saveFileDialog').classList.add('visible');
+            fitDialog('saveFileDialog');
+            input.focus();
+            input.select();
+        }
+
+        function closeSaveFileDialog() {
+            document.getElementById('saveFileDialog').classList.remove('visible');
+        }
+
+        function confirmSaveFile() {
+            const name = document.getElementById('saveFilenameInput').value.trim();
+            if (!name) return;
+            closeSaveFileDialog();
+            executeSave(fileToSaveNum, name);
+        }
+
+        function toggleFindMode() {
+            const isHex = document.getElementById('findModeHex').checked;
+            document.getElementById('matchCaseContainer').style.display = isHex ? 'none' : 'block';
+            const input = document.getElementById('findInput');
+            input.placeholder = isHex ? "Enter hex (e.g. 1A 2B 3C)" : "Enter text...";
+            
+            if (isHex) {
+                 handleFindInput({ target: input });
+            }
+        }
+        
+        function toggleReplaceMode() {
+            const isHex = document.getElementById('replaceModeHex').checked;
+            const findIn = document.getElementById('findInputReplace');
+            const repIn = document.getElementById('replaceInput');
+            
+            findIn.placeholder = isHex ? "Enter hex (e.g. 1A 2B)" : "Enter text...";
+            repIn.placeholder = isHex ? "Enter hex (e.g. CC DD)" : "Enter text...";
+            
+            if (isHex) {
+                handleReplaceInput({ target: findIn });
+                handleReplaceInput({ target: repIn });
+            }
+        }
+
+        function handleFindInput(e) {
+            const isHex = document.getElementById('findModeHex').checked;
+            if (isHex) {
+                let val = e.target.value.replace(/[^0-9A-Fa-f]/g, ''); // Strip non-hex
+                // Add space every 2 chars
+                let formatted = '';
+                for (let i = 0; i < val.length; i++) {
+                    if (i > 0 && i % 2 === 0) formatted += ' ';
+                    formatted += val[i];
+                }
+                e.target.value = formatted.toUpperCase();
+            }
+        }
+        
+        function handleReplaceInput(e) {
+            const isHex = document.getElementById('replaceModeHex').checked;
+            if (isHex) {
+                let val = e.target.value.replace(/[^0-9A-Fa-f]/g, '');
+                let formatted = '';
+                for (let i = 0; i < val.length; i++) {
+                    if (i > 0 && i % 2 === 0) formatted += ' ';
+                    formatted += val[i];
+                }
+                e.target.value = formatted.toUpperCase();
+            }
+        }
+
+        function performGoto() {
+            const raw = document.getElementById('gotoInput').value.trim();
+            if(!raw) return;
+            
+            let val = parseInt(raw, 16);
+            if(isNaN(val)) return;
+
+            const state = activeFileNum === 1 ? file1State : file2State;
+            // Use real file size for validation
+            let size = state.doc.size;
+
+            const maxOff = Math.max(0, size - 1);
+            
+            if (val < 0 || val > maxOff) {
+                showAlertDialog('Error', `Offset out of range (0 - 0x${maxOff.toString(16).toUpperCase()})`);
+                return;
+            }
+
+            closeGotoDialog();
+            scrollToOffset(val, true);
+        }
+
+        function scrollToOffset(offset, center = true) {
+            editNibble = 0; // Reset
+            selectionRangeStart = offset;
+            selectionRangeEnd = offset;
+            anchorOffset = offset;
+            const state = activeFileNum === 1 ? file1State : file2State;
+            
+            // In compare mode, bounds checking against max size
+            let maxSize = state.doc.size;
+            if(compareMode) maxSize = Math.max(file1State.doc.size, file2State.doc.size);
+            
+            if(offset < 0) offset = 0; 
+            if(offset >= maxSize) offset = maxSize - 1;
+            
+            const container = document.getElementById(`hexContainer${activeFileNum}`);
+            const totalRowHeight = fontSize + rowHeight;
+            const row = Math.floor(offset / bytesPerRow);
+            
+            // Calculate virtual scroll parameters exactly as in onContainerScroll/initVirtualScroll
+            const totalRows = Math.ceil(maxSize / bytesPerRow);
+            const realHeight = totalRows * totalRowHeight;
+            const useVirtual = realHeight > MAX_SCROLL_HEIGHT;
+            
+            const clientHeight = container.clientHeight;
+            const visibleRows = Math.floor(clientHeight / totalRowHeight);
+            
+            // For virtual scroll, we map [0, maxHiddenRows] -> [0, scrollMax]
+            const maxHiddenRows = Math.max(0, totalRows - visibleRows);
+            const scrollMax = container.scrollHeight - clientHeight;
+            
+            // Determine the range of rows currently visible (Coarse)
+            let currentTopRow = 0;
+            if (useVirtual && maxHiddenRows > 0 && scrollMax > 0) {
+                 const pct = container.scrollTop / scrollMax;
+                 currentTopRow = Math.floor(pct * maxHiddenRows);
+            } else {
+                 currentTopRow = Math.floor(container.scrollTop / totalRowHeight);
+            }
+            const currentBottomRow = currentTopRow + visibleRows; // Exclusive
+            
+            // Decide if we need to scroll
+            let needsScroll = center;
+            if (!needsScroll) {
+                // If the target row is outside the [top, bottom) range
+                if (row < currentTopRow || row >= currentBottomRow) {
+                    needsScroll = true;
+                }
+            }
+            
+            if (needsScroll) {
+                let targetTopRow = row;
+                
+                if (center) {
+                    // Center vertically
+                    targetTopRow = Math.max(0, row - Math.floor(visibleRows / 2));
+                } else {
+                    // Minimal scroll to bring into view
+                    if (row < currentTopRow) {
+                        targetTopRow = row;
+                    } else if (row >= currentBottomRow) {
+                        targetTopRow = row - visibleRows + 1;
+                    }
+                }
+                
+                // Clamp
+                if (targetTopRow < 0) targetTopRow = 0;
+                if (targetTopRow > maxHiddenRows) targetTopRow = maxHiddenRows;
+                
+                // Apply scroll
+                let targetScrollTop = 0;
+                if (useVirtual && maxHiddenRows > 0) {
+                    const pct = targetTopRow / maxHiddenRows;
+                    targetScrollTop = pct * scrollMax;
+                } else {
+                    targetScrollTop = targetTopRow * totalRowHeight;
+                }
+                
+                // Suppress scroll handler to avoid aggregated event lag
+                suppressScrollHandler = true;
+                
+                container.scrollTop = targetScrollTop;
+
+                // --- PRECISION FIX ---
+                // Force the exact start byte for rendering to avoid jitter from scrollTop rounding
+                const override = {
+                    scrollTop: container.scrollTop, // Use actual DOM value
+                    byte: targetTopRow * bytesPerRow
+                };
+                
+                state.scrollOverride = override;
+                
+                if (compareMode) {
+                    // Sync other panel
+                    const otherNum = activeFileNum === 1 ? 2 : 1;
+                    const otherState = otherNum === 1 ? file1State : file2State;
+                    const otherContainer = document.getElementById(`hexContainer${otherNum}`);
+                    
+                    otherContainer.scrollTop = container.scrollTop;
+                    otherState.scrollOverride = override;
+                }
+                
+                // Reset suppression slightly later to ensure all async scroll events are ignored
+                setTimeout(() => { suppressScrollHandler = false; }, 20);
+            }
+            
+            // Trigger UI update
+            // Use requestAnimationFrame for smoother experience and to ensure render matches scroll
+            requestAnimationFrame(() => {
+                refreshViews();
+                
+                // Horizontal scrolling
+                const c = document.getElementById(`hexContainer${activeFileNum}`);
+                const selector = activePane === 'ascii' ? 
+                    `.ascii-byte[data-o="${offset}"]` : 
+                    `.hex-byte[data-o="${offset}"]`;
+                const el = c.querySelector(selector);
+                
+                if(el) {
+                    const elRect = el.getBoundingClientRect();
+                    const cRect = c.getBoundingClientRect();
+                    
+                    if (center) {
+                        // Center horizontally
+                        const elCenter = elRect.left + elRect.width / 2;
+                        const cCenter = cRect.left + cRect.width / 2;
+                        c.scrollLeft += (elCenter - cCenter);
+                    } else {
+                        // Scroll Into View
+                        if (elRect.left < cRect.left) {
+                             c.scrollLeft -= (cRect.left - elRect.left) + 20; 
+                        } else if (elRect.right > cRect.right) {
+                             c.scrollLeft += (elRect.right - cRect.right) + 20;
+                        }
+                    }
+                }
+
+                // Sync other panel horizontal scroll
+                if (compareMode) {
+                    const otherNum = activeFileNum === 1 ? 2 : 1;
+                    const otherC = document.getElementById(`hexContainer${otherNum}`);
+                    if (otherC) otherC.scrollLeft = c.scrollLeft;
+                }
+                
+                updateCursorInfo();
+                updateSelectionStatus();
+                updateMenuStates();
+            });
+        }
+        
+        function parsePattern(val, isHex) {
+             if (isHex) {
+                const clean = val.replace(/[^0-9A-Fa-f]/g, '');
+                if (clean.length === 0) return { bytes: new Uint8Array(0), valid: true }; // Allow empty for replace
+                if (clean.length % 2 !== 0) return { bytes: null, valid: false };
+                const bytes = new Uint8Array(clean.length / 2);
+                for(let i=0; i<bytes.length; i++) bytes[i] = parseInt(clean.substr(i*2, 2), 16);
+                return { bytes: bytes, valid: true };
+            } else {
+                return { bytes: new TextEncoder().encode(val), valid: true };
+            }
+        }
+        
+        async function scanForPattern(fileNum, patternBytes, startOffset = 0, limit = -1) {
+             const state = fileNum === 1 ? file1State : file2State;
+             const CHUNK = 1024 * 1024; // 1MB scan chunk
+             const SCAN_LIMIT = 20 * 1024 * 1024; // 20MB scan limit
+             
+             let offsets = [];
+             
+             for (let off = startOffset; off < Math.min(state.doc.size, startOffset + SCAN_LIMIT); off += CHUNK - patternBytes.length) {
+                const len = Math.min(CHUNK, state.doc.size - off);
+                await state.doc.ensureRange(off, len);
+                const buf = state.doc.read(off, len);
+                
+                for (let i = 0; i <= buf.length - patternBytes.length; i++) {
+                     let match = true;
+                     for(let j=0; j<patternBytes.length; j++) {
+                         if(buf[i+j] !== patternBytes[j]) { match = false; break; }
+                     }
+                     if(match) {
+                         offsets.push(off + i);
+                         if (limit !== -1 && offsets.length >= limit) return offsets;
+                         i += patternBytes.length - 1; // Advance to avoid overlapping finds? Standard behavior usually non-overlapping
+                     }
+                }
+                if (limit !== -1 && offsets.length >= limit) break;
+             }
+             return offsets;
+        }
+
+        async function performFind() {
+            const term = document.getElementById('findInput').value;
+            const isHex = document.getElementById('findModeHex').checked;
+            const matchCase = document.getElementById('matchCase').checked;
+            
+            const scopeVal = document.querySelector('input[name="findScope"]:checked').value;
+            
+            let searchBytes;
+            if (isHex) {
+                const parsed = parsePattern(term, true);
+                if (!parsed.valid || parsed.bytes.length === 0) { showAlertDialog('Error', 'Invalid hex (incomplete byte or empty)'); return; }
+                searchBytes = parsed.bytes;
+            } else {
+                searchBytes = new TextEncoder().encode(term);
+                if (!matchCase) {
+                    // Primitive lowercasing for ascii
+                    for(let i=0; i<searchBytes.length; i++) {
+                        if (searchBytes[i] >= 65 && searchBytes[i] <= 90) searchBytes[i] += 32;
+                    }
+                }
+            }
+
+            const filesToSearch = [];
+            
+            // Determine search order based on active file and scope
+            if (activeFileNum === 1) {
+                if (scopeVal === 'left' || scopeVal === 'both') filesToSearch.push(1);
+                if (scopeVal === 'right' || scopeVal === 'both') filesToSearch.push(2);
+            } else {
+                if (scopeVal === 'right' || scopeVal === 'both') filesToSearch.push(2);
+                if (scopeVal === 'left' || scopeVal === 'both') filesToSearch.push(1);
+            }
+
+            if (!compareMode) {
+                filesToSearch.length = 0;
+                filesToSearch.push(1);
+            }
+
+            updateStatus('Searching...');
+            closeFindDialog();
+            
+            let foundOffset = -1;
+            let foundFile = -1;
+            
+            // Simplified custom search loop to support case-insensitive text
+            const CHUNK = 1024 * 1024; 
+            const LIMIT = 20 * 1024 * 1024;
+
+            for (const fNum of filesToSearch) {
+                const state = fNum === 1 ? file1State : file2State;
+                if (!state.doc.originalFile && state.doc.size === 0) continue;
+                
+                let startOff = 0;
+                if (fNum === activeFileNum && selectionRangeStart !== null) {
+                    startOff = selectionRangeStart + 1;
+                }
+                
+                for (let off = startOff; off < Math.min(state.doc.size, startOff + LIMIT); off += CHUNK - searchBytes.length) {
+                    const len = Math.min(CHUNK, state.doc.size - off);
+                    await state.doc.ensureRange(off, len);
+                    const buf = state.doc.read(off, len);
+                    
+                    for (let i = 0; i <= buf.length - searchBytes.length; i++) {
+                         let match = true;
+                         for(let j=0; j<searchBytes.length; j++) {
+                             let b = buf[i+j];
+                             let s = searchBytes[j];
+                             if (!isHex && !matchCase) {
+                                 if (b >= 65 && b <= 90) b += 32;
+                             }
+                             if(b !== s) { match = false; break; }
+                         }
+                         if(match) {
+                             foundOffset = off + i;
+                             foundFile = fNum;
+                             break;
+                         }
+                    }
+                    if(foundOffset !== -1) break;
+                }
+                if (foundOffset !== -1) break;
+            }
+
+            if (foundOffset !== -1) {
+                if (activeFileNum !== foundFile) {
+                    activeFileNum = foundFile;
+                }
+                scrollToOffset(foundOffset, true);
+                selectionRangeEnd = foundOffset + searchBytes.length - 1;
+                updateStatus(`Found in ${foundFile === 1 ? 'Left' : 'Right'} Panel at 0x${foundOffset.toString(16)}`);
+                refreshViews();
+            } else {
+                updateStatus('Not found (searched next 20MB)');
+            }
+        }
+        
+        async function performReplace(replaceAll) {
+            const findTerm = document.getElementById('findInputReplace').value;
+            const replaceTerm = document.getElementById('replaceInput').value;
+            const isHex = document.getElementById('replaceModeHex').checked;
+            
+            const scopeVal = document.querySelector('input[name="replaceScope"]:checked').value;
+            
+            const pFind = parsePattern(findTerm, isHex);
+            const pRep = parsePattern(replaceTerm, isHex);
+            
+            if (!pFind.valid || pFind.bytes.length === 0) { showAlertDialog('Error', 'Invalid Find pattern'); return; }
+            if (!pRep.valid) { showAlertDialog('Error', 'Invalid Replace pattern'); return; }
+            
+            const findBytes = pFind.bytes;
+            const replaceBytes = pRep.bytes;
+            
+            const files = [];
+            if (compareMode) {
+                if (scopeVal === 'left' || scopeVal === 'both') files.push(1);
+                if (scopeVal === 'right' || scopeVal === 'both') files.push(2);
+            } else {
+                files.push(1);
+            }
+            
+            closeReplaceDialog();
+            
+            if (replaceAll) {
+                updateStatus('Replacing All...');
+                let totalReplaced = 0;
+                
+                for (const fNum of files) {
+                    const state = fNum === 1 ? file1State : file2State;
+                    // Find all occurrences first to avoid offset shifting issues during iteration
+                    // Using reverse order later ensures stability
+                    const offsets = await scanForPattern(fNum, findBytes);
+                    
+                    if (offsets.length > 0) {
+                        pushHistory(fNum, { type: 'Replace All', count: offsets.length * (findBytes.length + replaceBytes.length) });
+                        
+                        // Process from end to start
+                        for (let i = offsets.length - 1; i >= 0; i--) {
+                            const off = offsets[i];
+                            state.doc.delete(off, findBytes.length);
+                            if (replaceBytes.length > 0) state.doc.insert(off, replaceBytes);
+                        }
+                        
+                        totalReplaced += offsets.length;
+                        updateShim(fNum, state.doc.size);
+                        initVirtualScroll(fNum, true);
+                        updateFileIndicators(fNum);
+                    }
+                }
+                
+                refreshViews();
+                updateStatus(totalReplaced > 0 ? `Replaced ${totalReplaced} occurrences.` : 'Pattern not found.');
+                
+            } else {
+                // Replace Next (Single)
+                // Finds next occurrence from current cursor in active file (if in scope), or switches file
+                
+                // Prioritize active file
+                const orderedFiles = [];
+                if (files.includes(activeFileNum)) {
+                    orderedFiles.push(activeFileNum);
+                    files.forEach(f => { if(f !== activeFileNum) orderedFiles.push(f); });
+                } else {
+                    orderedFiles.push(...files);
+                }
+                
+                let foundOffset = -1;
+                let foundFile = -1;
+                
+                for (const fNum of orderedFiles) {
+                    const state = fNum === 1 ? file1State : file2State;
+                    let startOff = (fNum === activeFileNum && selectionRangeStart !== null) ? selectionRangeStart : 0;
+                    
+                    // If we are currently sitting on a match, we should probably replace THIS one? 
+                    // Standard Find/Replace logic: Find finds match. Replace replaces current match and finds next.
+                    // But here user just clicked "Replace" which acts as "Find Next & Replace".
+                    // Let's assume we search from cursor.
+                    
+                    const offsets = await scanForPattern(fNum, findBytes, startOff, 1);
+                    if (offsets.length > 0) {
+                        foundOffset = offsets[0];
+                        foundFile = fNum;
+                        break;
+                    }
+                }
+                
+                if (foundOffset !== -1) {
+                    if (activeFileNum !== foundFile) activeFileNum = foundFile;
+                    
+                    const state = activeFileNum === 1 ? file1State : file2State;
+                    
+                    pushHistory(activeFileNum, { type: 'Replace', count: findBytes.length });
+                    state.doc.delete(foundOffset, findBytes.length);
+                    if (replaceBytes.length > 0) state.doc.insert(foundOffset, replaceBytes);
+                    
+                    const newLen = replaceBytes.length;
+                    
+                    updateShim(activeFileNum, state.doc.size);
+                    scrollToOffset(foundOffset, true);
+                    selectionRangeStart = foundOffset;
+                    selectionRangeEnd = foundOffset + (newLen > 0 ? newLen - 1 : 0);
+                    refreshViews();
+                    updateFileIndicators(activeFileNum);
+                    updateStatus(`Replaced match at 0x${foundOffset.toString(16)}`);
+                } else {
+                     updateStatus('Pattern not found');
+                }
+            }
+        }
+
+        // --- MENU LOGIC ---
+        function setupMenuHandlers() {
+            const menuBar = document.getElementById('menuBar');
+            const menuItems = menuBar.querySelectorAll('.menu-item');
+            menuItems.forEach(item => {
+                item.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    hideContextMenu();
+                    const name = this.dataset.menu;
+                    if (activeMenu === name) {
+                        this.classList.remove('active');
+                        activeMenu = null;
+                    } else {
+                        menuItems.forEach(mi => mi.classList.remove('active'));
+                        this.classList.add('active');
+                        activeMenu = name;
+                    }
+                });
+
+                item.addEventListener('mouseenter', function (e) {
+                    if (activeMenu) {
+                        const name = this.dataset.menu;
+                        if (activeMenu !== name) {
+                            menuItems.forEach(mi => mi.classList.remove('active'));
+                            this.classList.add('active');
+                            activeMenu = name;
+                        }
+                    }
+                });
+            });
+        }
+        
+        function closeAllMenus() {
+            document.querySelectorAll('.menu-item').forEach(mi => mi.classList.remove('active'));
+            activeMenu = null;
+        }
+
+        function buildFileMenu() {
+            const submenu = document.getElementById('fileSubmenu');
+            if (!submenu) return;
+            submenu.innerHTML = '';
+
+            const makeItem = (label, fn, title, innerHtml) => {
+                const item = document.createElement('div');
+                item.className = 'submenu-item';
+                if (innerHtml) item.innerHTML = innerHtml;
+                else item.textContent = label;
+                if (title) item.title = title;
+                item.addEventListener('click', (ev) => { ev.stopPropagation(); try { fn(); } catch(e){ console.error(e); } closeAllMenus(); });
+                return item;
+            };
+            const makeSeparator = () => { const sep = document.createElement('div'); sep.className = 'submenu-separator'; return sep; };
+
+            if (!compareMode || !file2State.doc.originalFile) {
+                // Single File Mode
+                submenu.appendChild(makeItem('📄 Open File', openFile, '', '📄 Open File<span class="shortcut-key">CTRL+O</span>'));
+                if (file1State.doc.originalFile) {
+                    submenu.appendChild(makeItem('💾 Save As...', () => promptSaveFile(1), '', '💾 Save As...<span class="shortcut-key">CTRL+S</span>'));
+                    submenu.appendChild(makeItem('🚪 Close', () => closeFile(1)));
+                }
+                submenu.appendChild(makeSeparator());
+                submenu.appendChild(makeItem('🔎 Compare...', compareFiles));
+            } else {
+                // Compare Mode
+                // Open File (New) is intentionally removed in Compare Mode
+                
+                const leftTitle = document.createElement('div');
+                leftTitle.className = 'submenu-item';
+                leftTitle.style.fontWeight = '700';
+                leftTitle.textContent = `Left Panel`;
+                submenu.appendChild(leftTitle);
+                
+                submenu.appendChild(makeItem('  💾 Save As...', () => promptSaveFile(1), '', '  💾 Save As...<span class="shortcut-key">CTRL+S</span>'));
+                submenu.appendChild(makeItem('  🚪 Close', () => closeFile(1)));
+
+                submenu.appendChild(makeSeparator());
+
+                const rightTitle = document.createElement('div');
+                rightTitle.className = 'submenu-item';
+                rightTitle.style.fontWeight = '700';
+                rightTitle.textContent = `Right Panel`;
+                submenu.appendChild(rightTitle);
+                
+                submenu.appendChild(makeItem('  💾 Save As...', () => promptSaveFile(2)));
+                submenu.appendChild(makeItem('  🚪 Close', () => closeFile(2)));
+            }
+        }
+
+        function wireStaticMenuActions() {
+            document.querySelectorAll('[data-action]').forEach(el => {
+                el.addEventListener('click', (ev) => {
+                    ev.stopPropagation();
+                    closeAllMenus();
+                    const act = el.dataset.action;
+                    switch (act) {
+                        case 'undo': performUndo(); break;
+                        case 'redo': performRedo(); break;
+                        case 'cut': performCut(); break;
+                        case 'copyHex': performCopyHex(); break;
+                        case 'copyAscii': performCopyAscii(); break;
+                        case 'copyOffset': copyOffset(); break;
+                        case 'pasteOverwrite': performPaste(true); break;
+                        case 'pasteInsert': performPaste(false); break;
+                        case 'delete': performDelete(); break;
+                        case 'find': showFindDialog(); break;
+                        case 'findNext': performFind(); break;
+                        case 'replace': showReplaceDialog(); break;
+                        case 'goto': showGotoDialog(); break;
+                        case 'toggleTheme': 
+                            isDarkMode = !isDarkMode;
+                            document.body.classList.toggle('dark-mode', isDarkMode);
+                            saveSettings();
+                            break;
+                        case 'settings': showSettingsDialog(); break;
+                        case 'viewHelp': showHelpDialog(); break;
+                        case 'viewLicense': showLicenseDialog(); break;
+                        case 'about': showAboutDialog(); break;
+                    }
+                });
+            });
+        }
+
+        // --- FILE HANDLING ---
+        function openFile() { closeAllMenus(); document.getElementById('fileInput').click(); }
+        
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            loadIntoState(1, file);
+            if(!compareMode) {
+                document.getElementById('filesContainer').classList.remove('compare-mode');
+                document.getElementById('file2Container').classList.add('hidden');
+            }
+            initVirtualScroll(1);
+            event.target.value = '';
+            buildFileMenu();
+            updateMenuStates();
+        }
+
+        function compareFiles() {
+            closeAllMenus();
+            if (!file1State.doc.originalFile) { showAlertDialog('Notice', 'Open first file.'); return; }
+            compareMode = true;
+            document.getElementById('file2Input').click();
+        }
+
+        function handleSecondFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) { compareMode = false; buildFileMenu(); return; }
+            loadIntoState(2, file);
+            document.getElementById('filesContainer').classList.add('compare-mode');
+            document.getElementById('file2Container').classList.remove('hidden');
+            initVirtualScroll(2);
+            event.target.value = '';
+            syncHeaderHeights();
+            buildFileMenu();
+            updateMenuStates();
+        }
+        
+        function loadIntoState(num, file) {
+            const state = num === 1 ? file1State : file2State;
+            state.doc = new PieceTable(file);
+            state.name = file.name;
+            state.loading = false;
+            state.pendingOffset = null;
+            state.hasPending = false;
+            state.undoStack = [];
+            state.redoStack = [];
+            state.originalSize = file.size; // Track initial size
+            document.getElementById(`file${num}Name`).textContent = file.name;
+            document.getElementById(`file${num}Size`).textContent = formatFileSize(state.doc.size);
+            updateFileIndicators(num);
+            updateMenuStates();
+        }
+
+        function executeSave(num, filename) {
+            const state = num === 1 ? file1State : file2State;
+            if (!state.doc.originalFile && state.doc.size === 0) return;
+            
+            // Update name in state
+            state.name = filename;
+            document.getElementById(`file${num}Name`).textContent = filename;
+            
+            updateStatus('Preparing download...');
+            setTimeout(() => {
+                // Construct Blob from pieces
+                const blobs = [];
+                for (const p of state.doc.pieces) {
+                    if (p.source === 'file') {
+                        blobs.push(state.doc.originalFile.slice(p.fileOffset, p.fileOffset + p.length));
+                    } else {
+                        blobs.push(p.buffer);
+                    }
+                }
+                const blob = new Blob(blobs, { type: 'application/octet-stream' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = state.name;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                updateStatus('Saved');
+            }, 50);
+        }
+
+        function closeFile(num) {
+            if (num === 1 && compareMode) {
+                // Swap States to promote File 2 to Left Panel
+                const temp = file1State;
+                file1State = file2State;
+                file2State = temp;
+
+                // Migrate History: Map File 2 (2) -> File 1 (1)
+                globalUndoStack = globalUndoStack.filter(n => n === 2).map(() => 1);
+                globalRedoStack = globalRedoStack.filter(n => n === 2).map(() => 1);
+
+                // Reset the old File 1 (now in slot 2)
+                resetFileState(2);
+                document.getElementById('hexContent2').innerHTML = '';
+                document.getElementById('file2Container').classList.add('hidden');
+                
+                // Update Mode
+                compareMode = false;
+                document.getElementById('filesContainer').classList.remove('compare-mode');
+                
+                // Update UI for new File 1
+                document.getElementById('file1Name').textContent = file1State.name;
+                document.getElementById('file1Size').textContent = formatFileSize(file1State.doc.size);
+                updateFileIndicators(1);
+                
+                // Reset View
+                activeFileNum = 1;
+                clearSelection();
+                initVirtualScroll(1);
+            } else {
+                if (num === 1) {
+                    resetFileState(1);
+                    document.getElementById('hexContent1').innerHTML = '';
+                } else if (num === 2) {
+                    compareMode = false;
+                    resetFileState(2);
+                    document.getElementById('file2Container').classList.add('hidden');
+                    document.getElementById('filesContainer').classList.remove('compare-mode');
+                    document.getElementById('hexContent2').innerHTML = '';
+                }
+                
+                // Clean History
+                globalUndoStack = globalUndoStack.filter(n => n !== num);
+                globalRedoStack = globalRedoStack.filter(n => n !== num);
+
+                if (activeFileNum === num) {
+                    activeFileNum = 1;
+                    clearSelection();
+                }
+                
+                if (num === 1) initVirtualScroll(1); // Refresh empty view
+            }
+
+            syncHeaderHeights();
+            buildFileMenu();
+            updateMenuStates();
+        }
+
+        function resetFileState(num) {
+            const state = num === 1 ? file1State : file2State;
+            state.doc = new PieceTable(null);
+            state.name = '';
+            state.loading = false;
+            state.pendingOffset = null;
+            state.hasPending = false;
+            state.undoStack = [];
+            state.redoStack = [];
+            state.scrollOverride = null;
+            state.originalSize = 0;
+            document.getElementById(`file${num}Name`).textContent = 'No file loaded';
+            document.getElementById(`file${num}Size`).textContent = '';
+            updateFileIndicators(num);
+        }
+
+        // --- SCROLLING & DATA ---
+        
+        function initVirtualScroll(fileNum, maintainPosition = false) {
+            const container = document.getElementById(`hexContainer${fileNum}`);
+            const state = fileNum === 1 ? file1State : file2State;
+            const shim = document.getElementById(`scrollShim${fileNum}`);
+            
+            const totalRowHeight = fontSize + rowHeight;
+            
+            // In compare mode, use max size for both to allow alignment
+            let size = state.doc.size;
+            if (compareMode) {
+                size = Math.max(file1State.doc.size, file2State.doc.size);
+            }
+
+            const totalRows = Math.ceil(size / bytesPerRow);
+            const realHeight = totalRows * totalRowHeight;
+            const useVirtual = realHeight > MAX_SCROLL_HEIGHT;
+            
+            shim.style.height = (useVirtual ? MAX_SCROLL_HEIGHT : realHeight) + 'px';
+            
+            if (!maintainPosition) {
+                container.scrollTop = 0;
+            }
+            
+            container.onscroll = (e) => onContainerScroll(fileNum);
+            
+            ensureDataFor(fileNum, maintainPosition ? getScrollByte(fileNum) : 0).then(() => onContainerScroll(fileNum));
+        }
+
+        function onContainerScroll(fileNum) {
+            if (suppressScrollHandler) return;
+
+            const container = document.getElementById(`hexContainer${fileNum}`);
+            const state = fileNum === 1 ? file1State : file2State;
+            
+            const totalRowHeight = fontSize + rowHeight;
+            const scrollTop = container.scrollTop;
+            const clientHeight = container.clientHeight;
+            const scrollMax = container.scrollHeight - clientHeight;
+            
+            let targetByte = 0;
+            
+            let maxSize = state.doc.size;
+            if (compareMode) maxSize = Math.max(file1State.doc.size, file2State.doc.size);
+            
+            if (maxSize > 0 && clientHeight > 0) {
+                const totalRows = Math.ceil(maxSize / bytesPerRow);
+                const realHeight = totalRows * totalRowHeight;
+                const useVirtual = realHeight > MAX_SCROLL_HEIGHT;
+                
+                if (useVirtual) {
+                     const pct = scrollMax > 0 ? scrollTop / scrollMax : 0;
+                     const visibleRows = Math.floor(clientHeight / totalRowHeight);
+                     const maxHiddenRows = Math.max(0, totalRows - visibleRows);
+                     const targetRow = Math.floor(pct * maxHiddenRows);
+                     targetByte = targetRow * bytesPerRow;
+                } else {
+                     const targetRow = Math.floor(scrollTop / totalRowHeight);
+                     targetByte = targetRow * bytesPerRow;
+                }
+            }
+            
+            if(targetByte < 0) targetByte = 0;
+            const maxAllowedStart = Math.max(0, Math.floor((maxSize - 1) / bytesPerRow) * bytesPerRow);
+            if(targetByte > maxAllowedStart) targetByte = maxAllowedStart;
+
+            // --- Scroll Sync & Debounce Logic ---
+            isScrolling = true;
+            if (scrollEndTimeout) clearTimeout(scrollEndTimeout);
+            
+            // When scrolling stops (debounce)
+            scrollEndTimeout = setTimeout(() => {
+                isScrolling = false;
+                scrollLockSource = null; // Release lock only when scrolling fully stops
+                refreshViews(); // Re-render to show diffs and ensure final alignment
+            }, 300);
+
+            if (compareMode) {
+                // Sync only if we hold the lock or no one holds it
+                if (!scrollLockSource || scrollLockSource === container) {
+                    scrollLockSource = container;
+
+                    const otherNum = fileNum === 1 ? 2 : 1;
+                    const otherContainer = document.getElementById(`hexContainer${otherNum}`);
+                    
+                    // Direct 1:1 sync for address alignment
+                    // Since both containers have the same virtual height/shim logic in compare mode
+                    otherContainer.scrollTop = container.scrollTop;
+                    otherContainer.scrollLeft = container.scrollLeft;
+
+                    // Explicitly render and ensure data for the other file to prevent blank views
+                    const otherByte = getScrollByte(otherNum);
+                    renderView(otherNum, otherByte);
+                    ensureDataFor(otherNum, otherByte);
+                }
+            }
+
+            renderView(fileNum, targetByte);
+            ensureDataFor(fileNum, targetByte);
+        }
+
+        async function ensureDataFor(fileNum, targetOffset) {
+            const state = fileNum === 1 ? file1State : file2State;
+            
+            // Queue the latest requested offset
+            state.pendingOffset = targetOffset;
+            
+            // If already loading, just mark that we have a pending update and exit.
+            // The existing loop will pick it up when it finishes its current batch.
+            if (state.loading) {
+                state.hasPending = true;
+                return;
+            }
+            
+            state.loading = true;
+            
+            // Process queue: Keep loading until no more pending updates
+            while(true) {
+                state.hasPending = false;
+                
+                // Always fetch for the CURRENT scroll position if it changed during load
+                const currentOffset = state.pendingOffset !== null ? state.pendingOffset : targetOffset;
+
+                const container = document.getElementById(`hexContainer${fileNum}`);
+                const visibleRows = Math.ceil(container.clientHeight / (fontSize + rowHeight)) + 2;
+                const length = visibleRows * bytesPerRow;
+                
+                try {
+                    await state.doc.ensureRange(currentOffset, length * 2); 
+                } catch (e) {
+                    console.error("Data load error", e);
+                }
+                
+                // Force UI update with newly loaded data
+                // We use getScrollByte() to ensure we render exactly where the user is currently looking,
+                // in case they scrolled while we were awaiting the data.
+                requestAnimationFrame(() => {
+                    const actualByte = getScrollByte(fileNum);
+                    renderView(fileNum, actualByte);
+                });
+                
+                // If no new request came in while we were waiting, we are done.
+                if (!state.hasPending) {
+                    break;
+                }
+            }
+            
+            state.loading = false;
+        }
+        
+        function renderView(fileNum, startByte) {
+            const container = document.getElementById(`hexContainer${fileNum}`);
+            const content = document.getElementById(`hexContent${fileNum}`);
+            const state = fileNum === 1 ? file1State : file2State;
+            
+            const totalRowHeight = fontSize + rowHeight;
+            
+            let maxSize = state.doc.size;
+            if (compareMode) maxSize = Math.max(file1State.doc.size, file2State.doc.size);
+
+            const totalRows = Math.ceil(maxSize / bytesPerRow);
+            const realHeight = totalRows * totalRowHeight;
+            const useVirtual = realHeight > MAX_SCROLL_HEIGHT;
+            const shimHeight = useVirtual ? MAX_SCROLL_HEIGHT : realHeight;
+            
+            let lines = Math.ceil(container.clientHeight / totalRowHeight) + 4;
+            
+            let contentTop = 0;
+            if (useVirtual) {
+                const offsetV = container.scrollTop % totalRowHeight;
+                contentTop = container.scrollTop - offsetV;
+                const spaceRemaining = shimHeight - contentTop;
+                const maxLines = Math.floor(spaceRemaining / totalRowHeight);
+                lines = Math.min(lines, maxLines);
+                lines = Math.max(0, lines);
+            } else {
+                const rowIdx = Math.floor(startByte / bytesPerRow);
+                contentTop = rowIdx * totalRowHeight;
+            }
+            
+            // Allow rendering up to max size (with placeholders)
+            const renderLen = Math.min(lines * bytesPerRow, maxSize - startByte);
+            
+            content.style.top = contentTop + 'px';
+            
+            // Read data if within file bounds
+            let data = new Uint8Array(0);
+            const availableBytes = Math.max(0, state.doc.size - startByte);
+            const readLen = Math.min(renderLen, availableBytes);
+            
+            if (readLen > 0) {
+                 data = state.doc.read(startByte, readLen);
+            }
+            
+            // Prepare other data for Diff
+            let otherData = null;
+            if (compareMode) {
+                const otherState = fileNum === 1 ? file2State : file1State;
+                // If the other file has data here
+                if (startByte < otherState.doc.size) {
+                    const otherAvailable = Math.max(0, otherState.doc.size - startByte);
+                    const otherReadLen = Math.min(renderLen, otherAvailable);
+                    otherData = otherState.doc.read(startByte, otherReadLen);
+                }
+            }
+            
+            let html = '';
+            for (let i = 0; i < lines; i++) {
+                const offset = startByte + (i * bytesPerRow);
+                // Allow generating lines beyond file end if maxSize > fileSize
+                if (offset >= maxSize) break;
+                
+                const addr = `0x${offset.toString(16).padStart(10,'0')}`;
+                let hexC = '';
+                let ascC = '';
+                let lineDiff = false;
+
+                for (let j = 0; j < bytesPerRow; j++) {
+                    const off = offset + j;
+                    if (off >= maxSize) {
+                        // Beyond Max Size (Shouldn't happen often if loops are correct)
+                        hexC += '<span class="hex-byte empty">&nbsp;&nbsp;</span>';
+                        ascC += '<span class="ascii-byte empty">&nbsp;</span>';
+                        continue;
+                    }
+                    
+                    // Check if beyond current file end -> Placeholder
+                    if (off >= state.doc.size) {
+                         hexC += '<span class="hex-byte placeholder">..</span>';
+                         ascC += '<span class="ascii-byte placeholder">.</span>';
+                         
+                         if (compareMode && otherData) {
+                             const otherIdx = off - startByte;
+                             if (otherIdx < otherData.length) {
+                                 // Data exists in other file -> Diff
+                                 lineDiff = true;
+                             }
+                         }
+                         continue;
+                    }
+                    
+                    const b = data[off - startByte];
+                    
+                    let isDiff = false;
+                    // Calculate diff (allow during scroll)
+                    if (compareMode && otherData) {
+                        const otherIdx = off - startByte;
+                        if (otherIdx < otherData.length) {
+                             if (b !== otherData[otherIdx]) { isDiff = true; lineDiff = true; }
+                        } else {
+                             // Other file ends before this -> Diff
+                             isDiff = true; lineDiff = true; 
+                        }
+                    }
+                    
+                    // --- UPDATED SELECTION VISUAL LOGIC ---
+                    let isSel = (selectionRangeStart !== null && off >= selectionRangeStart && off <= selectionRangeEnd);
+                    let isCursor = (selectionRangeStart === selectionRangeEnd && off === selectionRangeStart);
+
+                    let hVal = b.toString(16).padStart(2,'0').toUpperCase();
+                    // Using Text Decoding table
+                    let aVal = decodingTable[b] || '.';
+                    
+                    let hexCls = '';
+                    let ascCls = '';
+
+                    if (isDiff) { hexCls += ' byte-diff'; ascCls += ' byte-diff'; }
+                    
+                    if (isSel) {
+                        const isFileActive = (fileNum === activeFileNum);
+                        
+                        // Hex is active only if File is active AND active pane is Hex
+                        const hexActive = isFileActive && activePane === 'hex';
+                        // Ascii is active only if File is active AND active pane is Ascii
+                        const ascActive = isFileActive && activePane === 'ascii';
+                        
+                        hexCls += ' selected-byte' + (hexActive ? '' : ' inactive');
+                        ascCls += ' selected-byte' + (ascActive ? '' : ' inactive');
+
+                        if (isCursor) {
+                            hexCls += ' active-cursor';
+                            ascCls += ' active-cursor';
+                        }
+                    }
+
+                    hexC += `<span class="hex-byte ${hexCls}" data-o="${off}" data-f="${fileNum}">${hVal}</span>`;
+                    ascC += `<span class="ascii-byte ${ascCls}" data-o="${off}" data-f="${fileNum}">${aVal}</span>`;
+                }
+                
+                html += `<div class="hex-line ${lineDiff?'diff':''}" data-offset="${offset}">
+                    <span class="address">${addr}</span>
+                    <span class="hex-bytes">${hexC}</span>
+                    <span class="ascii-bytes">${ascC}</span>
+                </div>`;
+            }
+            content.innerHTML = html;
+            
+            content.querySelectorAll('.hex-byte:not(.placeholder), .ascii-byte:not(.placeholder)').forEach(el => {
+                el.addEventListener('click', onByteClick);
+                el.addEventListener('mouseenter', onByteHover);
+                el.addEventListener('mouseleave', onByteLeave);
+                el.addEventListener('contextmenu', onByteContext);
+            });
+            content.querySelectorAll('.hex-line').forEach(el => {
+                el.addEventListener('mouseenter', onRowHover);
+                el.addEventListener('mouseleave', onRowLeave);
+            });
+            
+            document.getElementById(`file${fileNum}Size`).textContent = formatFileSize(state.doc.size);
+        }
+
+        // --- INTERACTION ---
+
+        function onByteClick(e) {
+            e.stopPropagation();
+            closeAllMenus();
+            hideContextMenu();
+            const el = e.currentTarget;
+            const offset = parseInt(el.dataset.o);
+            const fNum = parseInt(el.dataset.f);
+            const isAscii = el.classList.contains('ascii-byte');
+            
+            activeFileNum = fNum;
+            activePane = isAscii ? 'ascii' : 'hex';
+            editNibble = 0; 
+
+            if (e.shiftKey && selectionRangeStart !== null) {
+                const start = anchorOffset !== null ? anchorOffset : selectionRangeStart;
+                if (offset < start) {
+                    selectionRangeStart = offset;
+                    selectionRangeEnd = start;
+                } else {
+                    selectionRangeStart = start;
+                    selectionRangeEnd = offset;
+                }
+            } else {
+                selectionRangeStart = offset;
+                selectionRangeEnd = offset;
+                anchorOffset = offset;
+            }
+            refreshViews();
+            updateCursorInfo();
+            updateSelectionStatus();
+            updateMenuStates();
+        }
+
+        function onByteHover(e) {
+            const el = e.currentTarget;
+            const off = el.dataset.o;
+            
+            // Fix tooltip NaN check
+            if (!off || isNaN(parseInt(off))) return;
+
+            document.getElementById('hoverOffset').textContent = `0x${parseInt(off).toString(16).padStart(10,'0')}`;
+            const disp = document.getElementById('offsetDisplay');
+            disp.classList.add('visible');
+            const r = el.getBoundingClientRect();
+            disp.style.left = Math.min(window.innerWidth - 120, Math.max(8, r.left)) + 'px';
+            disp.style.top = (r.top - 40) + 'px';
+            
+            // Highlight ALL occurrences of this offset (Hex and Ascii in all panels)
+            document.querySelectorAll(`[data-o="${off}"]`).forEach(node => {
+                node.classList.add('hover-strong');
+            });
+        }
+        function onByteLeave(e) {
+             document.getElementById('offsetDisplay').classList.remove('visible');
+             document.querySelectorAll('.hover-strong').forEach(el => el.classList.remove('hover-strong'));
+        }
+        function onByteContext(e) {
+            e.preventDefault();
+            
+            const el = e.currentTarget;
+            const offset = parseInt(el.dataset.o);
+            const fNum = parseInt(el.dataset.f);
+
+            // Determine Pane
+            const isAscii = el.classList.contains('ascii-byte');
+            const targetPane = isAscii ? 'ascii' : 'hex';
+
+            // If we are right-clicking a different file, we must switch/select it
+            if (fNum !== activeFileNum) {
+                onByteClick(e);
+            } else {
+                 let inSelection = false;
+                 if (selectionRangeStart !== null && selectionRangeEnd !== null) {
+                    if (offset >= selectionRangeStart && offset <= selectionRangeEnd) {
+                        inSelection = true;
+                    }
+                 }
+                 
+                 // If not clicking inside an existing selection, start a new selection
+                 if (!inSelection) {
+                     onByteClick(e);
+                 } else {
+                     // If clicking inside selection but on different pane, switch pane context
+                     if (targetPane !== activePane) {
+                         activePane = targetPane;
+                         refreshViews(); // Reflect active/inactive color change
+                         updateMenuStates();
+                     }
+                 }
+            }
+
+            // Update menu states before showing context menu
+            updateMenuStates();
+
+            const m = document.getElementById('contextMenu');
+            // Show it first to get dimensions
+            m.classList.add('visible');
+            
+            const w = m.offsetWidth;
+            const h = m.offsetHeight;
+            const vw = window.innerWidth;
+            const vh = window.innerHeight;
+            
+            let x = e.clientX;
+            let y = e.clientY;
+            
+            // Adjust position to fit screen
+            if (x + w > vw) x = vw - w - 8;
+            if (y + h > vh) y = vh - h - 8;
+            
+            m.style.left = x + 'px';
+            m.style.top = y + 'px';
+        }
+        function hideContextMenu() { document.getElementById('contextMenu').classList.remove('visible'); }
+        
+        function onRowHover(e) {
+             const off = e.currentTarget.dataset.offset;
+             if(compareMode) {
+                 [1,2].forEach(n => {
+                     const c = document.getElementById(`hexContent${n}`);
+                     const row = c.querySelector(`.hex-line[data-offset="${off}"]`);
+                     if(row) row.classList.add('hover-sync');
+                 });
+             } else {
+                 // Single file hover
+                 e.currentTarget.classList.add('hover-sync');
+             }
+        }
+        
+        function onRowLeave(e) {
+             const off = e.currentTarget.dataset.offset;
+             if(compareMode) {
+                 [1,2].forEach(n => {
+                     const c = document.getElementById(`hexContent${n}`);
+                     const row = c.querySelector(`.hex-line[data-offset="${off}"]`);
+                     if(row) row.classList.remove('hover-sync');
+                 });
+             } else {
+                 e.currentTarget.classList.remove('hover-sync');
+             }
+        }
+
+        function handleNavigation(key) {
+             if(selectionRangeStart === null) return;
+             const state = activeFileNum === 1 ? file1State : file2State;
+             let off = selectionRangeStart;
+             if(key === 'ArrowRight') off++;
+             if(key === 'ArrowLeft') off--;
+             if(key === 'ArrowDown') off += bytesPerRow;
+             if(key === 'ArrowUp') off -= bytesPerRow;
+             
+             let maxSize = state.doc.size;
+             if (compareMode) maxSize = Math.max(file1State.doc.size, file2State.doc.size);
+             
+             if(off < 0) off = 0;
+             if(off >= state.doc.size) off = state.doc.size - 1;
+             
+             scrollToOffset(off, true); // Changed to true
+        }
+
+        // --- EDITING ---
+        
+        function pushHistory(fileNum, action) {
+            const state = fileNum === 1 ? file1State : file2State;
+            
+            state.undoStack.push({
+                pieces: state.doc.pieces.map(p => ({...p})),
+                size: state.doc.size,
+                action: action || { type: 'Unknown', count: 0 }
+            });
+            state.redoStack = [];
+            
+            globalUndoStack.push(fileNum);
+            globalRedoStack = [];
+            updateFileIndicators(fileNum);
+            updateMenuStates();
+        }
+
+        function performUndo() {
+            if (globalUndoStack.length === 0) { updateStatus('Nothing to undo'); return; }
+            const fileNum = globalUndoStack.pop();
+            const state = fileNum === 1 ? file1State : file2State;
+
+            if (state.undoStack.length === 0) { updateStatus('Undo error: Stack mismatch'); return; }
+            
+            const prev = state.undoStack.pop();
+            state.redoStack.push({ 
+                pieces: state.doc.pieces.map(p => ({...p})), 
+                size: state.doc.size,
+                action: prev.action
+            });
+            
+            state.doc.pieces = prev.pieces;
+            state.doc.size = prev.size;
+            
+            globalRedoStack.push(fileNum);
+            
+            if (compareMode) {
+                updateShim(1, file1State.doc.size);
+                updateShim(2, file2State.doc.size);
+                
+                // Force redraw of both without resetting scroll handlers to prevent jumping to top
+                ensureDataFor(1, getScrollByte(1)).then(() => renderView(1, getScrollByte(1)));
+                ensureDataFor(2, getScrollByte(2)).then(() => renderView(2, getScrollByte(2)));
+                
+                // Ensure active view drives sync if needed
+                onContainerScroll(activeFileNum);
+            } else {
+                updateShim(1, state.doc.size);
+                onContainerScroll(fileNum);
+            }
+            
+            document.getElementById(`file${fileNum}Size`).textContent = formatFileSize(state.doc.size);
+            
+            const act = prev.action || { type: 'Action', count: 0, offset: 0 };
+            const countStr = act.count + (act.count === 1 ? ' byte' : ' bytes');
+            const offStr = `0x${(act.offset !== undefined ? act.offset : 0).toString(16).padStart(8,'0').toUpperCase()}`;
+            const prep = (act.count > 1 && !act.type.includes('Paste') && !act.type.includes('Replace All')) ? 'starting from offset:' : 'at offset:';
+            updateStatus(`Undo: ${act.type} ${countStr} ${prep} ${offStr}`);
+            editNibble = 0;
+            updateFileIndicators(fileNum);
+            updateMenuStates();
+        }
+
+        function performRedo() {
+            if (globalRedoStack.length === 0) { updateStatus('Nothing to redo'); return; }
+            const fileNum = globalRedoStack.pop();
+            const state = fileNum === 1 ? file1State : file2State;
+
+            if (state.redoStack.length === 0) { updateStatus('Nothing to redo'); return; }
+            
+            const next = state.redoStack.pop();
+            state.undoStack.push({ 
+                pieces: state.doc.pieces.map(p => ({...p})), 
+                size: state.doc.size,
+                action: next.action
+            });
+            
+            state.doc.pieces = next.pieces;
+            state.doc.size = next.size;
+            
+            globalUndoStack.push(fileNum);
+            
+            if (compareMode) {
+                updateShim(1, file1State.doc.size);
+                updateShim(2, file2State.doc.size);
+                
+                ensureDataFor(1, getScrollByte(1)).then(() => renderView(1, getScrollByte(1)));
+                ensureDataFor(2, getScrollByte(2)).then(() => renderView(2, getScrollByte(2)));
+                
+                onContainerScroll(activeFileNum);
+            } else {
+                updateShim(1, state.doc.size);
+                onContainerScroll(fileNum);
+            }
+
+            document.getElementById(`file${fileNum}Size`).textContent = formatFileSize(state.doc.size);
+            
+            const act = next.action || { type: 'Action', count: 0, offset: 0 };
+            const countStr = act.count + (act.count === 1 ? ' byte' : ' bytes');
+            const offStr = `0x${(act.offset !== undefined ? act.offset : 0).toString(16).padStart(8,'0').toUpperCase()}`;
+            const prep = (act.count > 1 && !act.type.includes('Paste') && !act.type.includes('Replace All')) ? 'starting from offset:' : 'at offset:';
+            updateStatus(`Redo: ${act.type} ${countStr} ${prep} ${offStr}`);
+            editNibble = 0;
+            updateFileIndicators(fileNum);
+            updateMenuStates();
+        }
+        
+        function updateShim(fileNum, size) {
+            const shim = document.getElementById(`scrollShim${fileNum}`);
+            const totalRowHeight = fontSize + rowHeight;
+            
+            if(compareMode) size = Math.max(file1State.doc.size, file2State.doc.size);
+            
+            const totalRows = Math.ceil(size / bytesPerRow);
+            const realHeight = totalRows * totalRowHeight;
+            shim.style.height = (realHeight > MAX_SCROLL_HEIGHT ? MAX_SCROLL_HEIGHT : realHeight) + 'px';
+        }
+
+        function handleGlobalKeydown(e) {
+            // Check for modal or menu early to prevent shortcuts from hijacking input
+            if (activeMenu || document.querySelector('.modal.visible')) {
+                // If Esc, close dialogs
+                if (e.key === 'Escape') { 
+                    closeAllMenus(); 
+                    closeFindDialog();
+                    closeReplaceDialog();
+                    closeGotoDialog(); 
+                    closeSettingsDialog();
+                    closeHelpDialog();
+                    closeLicenseDialog();
+                    closeAboutDialog();
+                    closeSaveFileDialog();
+                    closeAlertDialog();
+                    return;
+                }
+                
+                // If in an input field, do not process editor shortcuts (allow default copy/paste)
+                if (['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) return;
+                
+                // Else prevent actions that might conflict
+                return;
+            }
+
+            if (e.key === 'Escape') { clearSelection(); }
+            if (e.ctrlKey && e.key.toLowerCase() === 'z') { e.preventDefault(); performUndo(); }
+            if (e.ctrlKey && e.key.toLowerCase() === 'y') { e.preventDefault(); performRedo(); }
+            if (e.ctrlKey && e.key.toLowerCase() === 'f') { e.preventDefault(); showFindDialog(); }
+            if (e.key === 'F3') { e.preventDefault(); performFind(); }
+            if (e.ctrlKey && e.key.toLowerCase() === 'r') { e.preventDefault(); showReplaceDialog(); }
+            if (e.ctrlKey && e.key.toLowerCase() === 'g') { e.preventDefault(); showGotoDialog(); }
+            if (e.ctrlKey && e.key.toLowerCase() === 'c') { e.preventDefault(); performCopyHex(); }
+            if (e.ctrlKey && e.key.toLowerCase() === 't') { e.preventDefault(); performCopyAscii(); }
+            if (e.ctrlKey && e.key.toLowerCase() === 'x') { e.preventDefault(); performCut(); }
+            if (e.ctrlKey && e.key.toLowerCase() === 'v') { e.preventDefault(); performPaste(true); }
+            if (e.ctrlKey && e.key.toLowerCase() === 'i') { e.preventDefault(); performPaste(false); }
+            if (e.key === 'Delete') { e.preventDefault(); performDelete(); }
+            
+            // New Shortcuts
+            if (e.ctrlKey && e.key.toLowerCase() === 'o') { e.preventDefault(); openFile(); }
+            if (e.ctrlKey && e.key.toLowerCase() === 's') { e.preventDefault(); promptSaveFile(activeFileNum); }
+            if (e.ctrlKey && e.key.toLowerCase() === 'e') { e.preventDefault(); copyOffset(); }
+            
+            if (e.ctrlKey || e.altKey || e.metaKey) return; 
+
+            if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)) {
+                e.preventDefault();
+                handleNavigation(e.key);
+                return;
+            }
+
+            if (selectionRangeStart !== null && selectionRangeStart === selectionRangeEnd) {
+                handleEditInput(e);
+            }
+        }
+        
+        function clearSelection() {
+            selectionRangeStart = null; selectionRangeEnd = null; anchorOffset = null;
+            editNibble = 0; // Reset
+            refreshViews();
+            updateMenuStates();
+        }
+
+        function handleEditInput(e) {
+            const offset = selectionRangeStart;
+            const fileNum = activeFileNum;
+            const state = fileNum === 1 ? file1State : file2State;
+            
+            if (e.key === 'Backspace') e.preventDefault();
+            
+            if (activePane === 'hex') {
+                const key = e.key.toUpperCase();
+                if (/[0-9A-F]/.test(key) && key.length === 1) {
+                     // GROUP NIBBLE EDITS: Only push history on High nibble (start of byte edit)
+                     if (editNibble === 0) pushHistory(fileNum, { type: 'Edit', count: 1, offset: offset });
+                     
+                     const val = parseInt(key, 16);
+                     let currentByte = state.doc.read(offset, 1)[0];
+                     let newByte;
+                     
+                     if (editNibble === 0) {
+                         newByte = (currentByte & 0x0F) | (val << 4);
+                         editNibble = 1;
+                     } else {
+                         newByte = (currentByte & 0xF0) | val;
+                         editNibble = 0;
+                     }
+                     
+                     state.doc.delete(offset, 1);
+                     state.doc.insert(offset, new Uint8Array([newByte]));
+                     refreshViews();
+                     
+                     if (editNibble === 0) handleNavigation('ArrowRight');
+                }
+            } else if (activePane === 'ascii') {
+                if (e.key === ' ') e.preventDefault();
+                if (e.key.length === 1) {
+                    const charCode = e.key.charCodeAt(0);
+                    if (charCode >= 0 && charCode <= 255) {
+                        pushHistory(fileNum, { type: 'Edit', count: 1, offset: offset });
+                        state.doc.delete(offset, 1);
+                        state.doc.insert(offset, new Uint8Array([charCode]));
+                        handleNavigation('ArrowRight');
+                        refreshViews();
+                    }
+                }
+            }
+        }
+
+        async function performCopyHex() {
+            if (selectionRangeStart === null) return;
+            const state = activeFileNum === 1 ? file1State : file2State;
+            const len = selectionRangeEnd - selectionRangeStart + 1;
+            const copyLen = Math.min(len, MAX_COPY_SIZE);
+            if (len > MAX_COPY_SIZE) updateStatus('Selection too large, copied first 1MB');
+            
+            const data = state.doc.read(selectionRangeStart, copyLen);
+            const hex = Array.from(data).map(b => b.toString(16).padStart(2,'0').toUpperCase()).join(' ');
+            try { await navigator.clipboard.writeText(hex); updateStatus('Copied Hex'); } catch(e) { updateStatus('Copy failed'); }
+        }
+
+        async function performCopyAscii() {
+            if (selectionRangeStart === null) return;
+            const state = activeFileNum === 1 ? file1State : file2State;
+            const len = selectionRangeEnd - selectionRangeStart + 1;
+            const copyLen = Math.min(len, MAX_COPY_SIZE);
+            if (len > MAX_COPY_SIZE) updateStatus('Selection too large, copied first 1MB');
+            
+            const data = state.doc.read(selectionRangeStart, copyLen);
+            // Replace non-printable with selected decoding logic
+            let str = '';
+            for(let i=0; i<data.length; i++) {
+                str += decodingTable[data[i]] || '.';
+            }
+            try { await navigator.clipboard.writeText(str); updateStatus('Copied Text'); } catch(e) { updateStatus('Copy failed'); }
+        }
+
+        async function performCut() {
+            if (selectionRangeStart === null) return;
+            await performCopyHex();
+            performDelete();
+        }
+
+        async function performPaste(overwrite) {
+            // Guard against accidental paste when modal is open
+            if (document.querySelector('.modal.visible')) return;
+
+            const offset = selectionRangeStart !== null ? selectionRangeStart : 0;
+            const state = activeFileNum === 1 ? file1State : file2State;
+            
+            try {
+                const text = await navigator.clipboard.readText();
+                if (!text) return;
+                
+                let data = new Uint8Array(0);
+                
+                if (activePane === 'hex') {
+                    // Check for invalid hex characters (allow 0-9, A-F, a-f and whitespaces)
+                    if (!/^[0-9A-Fa-f\s]*$/.test(text)) {
+                         showAlertDialog('Paste Error', 'Clipboard content contains invalid hexadecimal characters.\n\nIf you intended to paste text, please click on the Text (ASCII) panel and try again.');
+                         return;
+                    }
+
+                    // Clean hex string
+                    const hex = text.replace(/[^0-9A-Fa-f]/g, '');
+                    
+                    if (hex.length === 0) return;
+
+                    if (hex.length % 2 !== 0) { showAlertDialog('Paste Error', 'Clipboard data is not valid hex (odd length). Hex data must be in pairs.'); return; }
+                    data = new Uint8Array(hex.length / 2);
+                    for(let i=0; i<hex.length; i+=2) {
+                        data[i/2] = parseInt(hex.substr(i, 2), 16);
+                    }
+                } else {
+                    data = new TextEncoder().encode(text);
+                }
+
+                if (data.length === 0) return;
+
+                // Validation for Overwrite at end of file
+                if (overwrite) {
+                    if (offset + data.length > state.doc.size) {
+                         showAlertDialog('Paste Error', `The pasted data (${data.length} bytes) exceeds the remaining file size (${state.doc.size - offset} bytes).\n\nOverwrite mode cannot extend the file size. Please use "Paste Insert" if you wish to insert these bytes.`);
+                         return;
+                    }
+                }
+
+                pushHistory(activeFileNum, { type: overwrite ? 'Paste Overwrite' : 'Paste Insert', count: data.length, offset: offset });
+
+                if (overwrite) {
+                    state.doc.delete(offset, data.length);
+                }
+                
+                state.doc.insert(offset, data);
+                
+                selectionRangeStart = offset + data.length;
+                selectionRangeEnd = offset + data.length;
+                anchorOffset = selectionRangeStart;
+                
+                updateShim(activeFileNum, state.doc.size);
+                refreshViews();
+                initVirtualScroll(activeFileNum);
+                scrollToOffset(selectionRangeStart);
+
+                updateFileIndicators(activeFileNum);
+                
+                updateStatus(`Pasted ${data.length} bytes`);
+            } catch(e) {
+                console.error(e);
+                updateStatus('Paste failed');
+            }
+        }
+
+        function performDelete() {
+            if (selectionRangeStart === null) return;
+            const state = activeFileNum === 1 ? file1State : file2State;
+            
+            const start = Math.min(selectionRangeStart, selectionRangeEnd);
+            const end = Math.max(selectionRangeStart, selectionRangeEnd);
+            const len = end - start + 1;
+            
+            pushHistory(activeFileNum, { type: 'Delete', count: len, offset: start });
+            
+            state.doc.delete(start, len);
+            
+            selectionRangeStart = start;
+            selectionRangeEnd = start;
+            anchorOffset = start;
+            
+            updateShim(activeFileNum, state.doc.size);
+            refreshViews();
+            initVirtualScroll(activeFileNum, true); // Changed to true to maintain scroll position
+
+            updateFileIndicators(activeFileNum);
+            
+            updateStatus(`Deleted ${len} bytes`);
+        }
+
+    </script>
+<script type="module" src="/index.tsx"></script>
+</body>
+</html>
