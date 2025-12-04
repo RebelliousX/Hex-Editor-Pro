@@ -40,6 +40,7 @@ Built as a **Progressive Web App (PWA)**, it offers a native desktop experience 
 *   **Replace All:** Pattern matching and bulk replacement.
 *   **Jump to Offset:** Quickly navigate to specific memory addresses.
 *   **Clipboard Management:** Intelligent Copy/Paste for Hex, Text, and Offsets.
+*   **Multi-Select** Hold `SHIFT` key while clicking to select range of bytes. See `View Help` for more details.
 
 ### 🎨 Customization
 *   **Theming:** Toggle between Dark and Light modes. Both themes utilize glassmorphism visuals (CSS Glass UI).
@@ -76,7 +77,7 @@ If you wish to run the app without installing it or for development purposes:
 
 | Action | Shortcut | Description |
 | :--- | :--- | :--- |
-| **Undo** | `Ctrl` + `Z` | Undo the last action |
+| **Undo** | `Ctrl` + `Z` &nbsp;&nbsp;&nbsp;| Undo the last action |
 | **Redo** | `Ctrl` + `Y` | Redo the last undone action |
 | **Find** | `Ctrl` + `F` | Open the Find dialog |
 | **Find Next** | `F3` | Repeat previous search |
