@@ -1,12 +1,14 @@
 // 1. **CRITICAL CHANGE:** Increment the version name for every new deployment.
 // Changing this string forces the browser to treat it as a new service worker.
-const CACHE_NAME = 'hex-editor-v1.0.0_r1'; // Updated from 'hex-editor-v1'
+const CACHE_NAME = 'hex-editor-v1.0.0_r2'; // Updated from 'hex-editor-v1'
 
 const ASSETS = [
     './',
     './index.html',
     './manifest.json',
     './icon.svg',
+    `./icon-192x192.png`,
+    `./icon-512x512.png`,
     // Ensure all new assets (like new JS/CSS bundles) are listed here
 ];
 
